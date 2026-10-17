@@ -1,6 +1,0 @@
-{
-  "raw_without_hidden_instructions": true,
-  "irq_saves_restores_full_context": true,
-  "early_return_uses_common_RTE": true,
-  "combined_interrupt_naked_is_raw": true
-}

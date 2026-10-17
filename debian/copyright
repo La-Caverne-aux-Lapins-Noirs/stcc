@@ -22,3 +22,9 @@ License: MIT
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
+
+Files: tos/*
+Copyright: the respective TOS image authors
+License: TOS-images
+ These optional images are external data supplied by the package builder.
+ Their own licenses apply; they are not covered by the MIT license of stcc.

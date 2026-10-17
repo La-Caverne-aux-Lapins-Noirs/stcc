@@ -21,7 +21,7 @@ def main():
         depends=deps.strip().removeprefix('shlibs:Depends=')
         assert depends and '${' not in depends
         (control/'control').write_text(f'''Package: stcc
-Version: 0.3.0-1
+Version: 0.3.1-1
 Section: devel
 Priority: optional
 Architecture: {arch}
@@ -40,7 +40,7 @@ Description: standalone C subset compiler and Devpac assembler for Atari ST
             man.with_suffix('.1.gz').write_bytes(gzip.compress(man.read_bytes(),mtime=0))
             man.unlink()
         out=root/'dist';out.mkdir(exist_ok=True)
-        package=out/f'stcc_0.3.0-1_{arch}.deb'
+        package=out/f'stcc_0.3.1-1_{arch}.deb'
         run('dpkg-deb','--root-owner-group','--build',stage,package)
         # Inspect the archive and test its extracted executable with support data.
         extracted=stage/'verification'
@@ -56,6 +56,13 @@ Description: standalone C subset compiler and Devpac assembler for Atari ST
         image=(stage/'verify.st').read_bytes()
         assert len(image)==720*1024 and image[11:13]==b'\x00\x02'
         assert b'AUTO       ' in image and b'VERIFY  PRG' in image
+        # Optional ROMs are package data, copied by make install at build time.
+        if (root/'tos').is_dir():
+            installed=extracted/'usr/share/stcc/tos'
+            assert installed.is_dir()
+            for source in (root/'tos').rglob('*'):
+                if source.is_file():
+                    assert (installed/source.relative_to(root/'tos')).read_bytes()==source.read_bytes()
         print(package)
 
 if __name__=='__main__':main()

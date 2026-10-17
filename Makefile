@@ -19,6 +19,7 @@ test: all
 	python3 tests/cli.py
 	python3 tests/function_modes.py
 	python3 tests/mkdisk.py
+	python3 tests/build_system.py
 examples: stcc
 	python3 tests/build_examples.py
 install: all
@@ -29,9 +30,20 @@ install: all
 	install -m644 README.md LICENSE docs/*.md $(DESTDIR)$(DATADIR)/docs/
 	install -m644 docs/stcc.1 $(DESTDIR)$(PREFIX)/share/man/man1/
 	install -m644 docs/stmkdisk.1 $(DESTDIR)$(PREFIX)/share/man/man1/
+	@if test -d tos; then \
+		install -d "$(DESTDIR)$(DATADIR)/tos" && \
+		cp -RL tos/. "$(DESTDIR)$(DATADIR)/tos/" && \
+		find "$(DESTDIR)$(DATADIR)/tos" -type d -exec chmod 755 {} + && \
+		find "$(DESTDIR)$(DATADIR)/tos" -type f -exec chmod 644 {} +; \
+	fi
 deb: all test
 	python3 scripts/build_deb.py
 clean:
-	rm -f stcc stmkdisk src/*.o
-	rm -rf tests/out examples/bin
-.PHONY: all clean test install examples deb
+	rm -f src/*.o stcc-asan stmkdisk-asan *.log *.tmp *.tmp.* *.pyc *.pyo
+	rm -rf tests/out validation __pycache__
+	find src tests scripts examples -type d -name __pycache__ -prune -exec rm -rf {} +
+	find src tests scripts examples -type f \( -name '*.pyc' -o -name '*.pyo' -o -name '*.log' -o -name '*.tmp' -o -name '*.tmp.*' \) -delete
+fclean: clean
+	rm -f stcc stmkdisk
+	rm -rf examples/bin dist
+.PHONY: all clean fclean test install examples deb

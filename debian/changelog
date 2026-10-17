@@ -1,3 +1,11 @@
+stcc (0.3.1-1) unstable; urgency=low
+
+  * Separate clean from fclean and remove generated test traces and temporaries.
+  * Install optional tos/ contents into /usr/share/stcc/tos with the package.
+  * Use fclean in debhelper and verify staged ROM data installation.
+
+ -- EFRITS <contact@efrits.fr>  Sat, 17 Oct 2026 15:40:00 +0000
+
 stcc (0.3.0-1) unstable; urgency=low
 
   * Add native stmkdisk: standalone FAT12 .ST floppy image creation.

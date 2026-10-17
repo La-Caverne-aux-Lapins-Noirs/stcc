@@ -173,7 +173,8 @@ python3 tests/hatari.py --tos /chemin/etos192us.img --examples
 ```
 
 Obtenir une ROM EmuTOS auprès de son projet officiel, ou utiliser une ROM TOS
-que vous détenez. Aucune ROM ni moteur tiers n'est inclus dans ce projet.
+que vous détenez. Les ROMs employées sont celles fournies localement ; le dossier optionnel
+`tos/` peut être inclus dans le paquet comme décrit ci-dessous.
 Les tests Hatari utilisent une machine ST, un M68000 à 8 MHz et 1 Mio de RAM,
 avec le pilote vidéo SDL `dummy`. Ils vérifient le code passé à `Pterm`, et
 échouent si le programme n'atteint pas la terminaison attendue.
@@ -214,6 +215,39 @@ make deb
 Cette seconde voie utilise `scripts/build_deb.py`, détermine les dépendances
 avec `dpkg-shlibdeps`, teste le compilateur, puis produit le paquet dans `dist/`.
 L'architecture du paquet est celle du compilateur **Linux**, pas celle du ST.
+
+## Nettoyage et images TOS
+
+```sh
+make clean     # objets, tests/out, validation, logs, caches Python et temporaires
+make fclean    # idem, puis stcc, stmkdisk, examples/bin et dist
+```
+
+`clean` conserve les deux outils, les exécutables d'exemples et les paquets.
+`fclean` les supprime également. Les sources et le dossier d'entrée `tos/`
+sont conservés. Le nettoyage vise les emplacements de travail du projet ;
+il ne parcourt pas les dossiers temporaires globaux du système.
+
+Placer les images de TOS dans `tos/` avant de construire le paquet :
+
+```sh
+make deb
+sudo dpkg -i dist/stcc_0.3.1-1_amd64.deb
+hatari --tos /usr/share/stcc/tos/etos192us.img --disk-a DEMO.ST
+```
+
+Le nom de la ROM de cette commande est un exemple ; employer celui de votre
+fichier. Le paquet installe tout le contenu présent dans `tos/`, sous-dossiers
+et fichiers cachés compris, dans **`/usr/share/stcc/tos/`**. Les liens source
+sont suivis pour embarquer les octets des images. Les fichiers installés sont
+lisibles par tous (0644), les dossiers traversables (0755).
+
+Un dossier `tos/` absent n'empêche pas la construction ou l'installation.
+Pour une installation directe, `make PREFIX=/usr install` utilise le même
+emplacement ; le préfixe par défaut `/usr/local` donne
+`/usr/local/share/stcc/tos/`. `DESTDIR` reste pris en compte pour préparer
+les paquets. La copie se fait à leur construction ; l'installation du `.deb`
+utilise ces données embarquées et n'a pas besoin du dossier source.
 
 ## Organisation
 
