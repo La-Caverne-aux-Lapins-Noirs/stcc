@@ -16,11 +16,12 @@ def main():
         stage.chmod(0o755)
         run('make','PREFIX=/usr','install','DESTDIR='+str(stage))
         control=stage/'DEBIAN';control.mkdir()
-        deps=run('dpkg-shlibdeps','-O',stage/'usr/bin/stcc',capture_output=True,text=True).stdout
+        deps=run('dpkg-shlibdeps','-O',stage/'usr/bin/stcc',stage/'usr/bin/stmkdisk',
+                 capture_output=True,text=True).stdout
         depends=deps.strip().removeprefix('shlibs:Depends=')
         assert depends and '${' not in depends
         (control/'control').write_text(f'''Package: stcc
-Version: 0.2.0-1
+Version: 0.3.0-1
 Section: devel
 Priority: optional
 Architecture: {arch}
@@ -34,11 +35,12 @@ Description: standalone C subset compiler and Devpac assembler for Atari ST
         doc=stage/'usr/share/doc/stcc';doc.mkdir(parents=True,exist_ok=True)
         shutil.copyfile(root/'debian/copyright',doc/'copyright')
         (doc/'changelog.Debian.gz').write_bytes(gzip.compress((root/'debian/changelog').read_bytes(),mtime=0))
-        man=stage/'usr/share/man/man1/stcc.1'
-        man.with_suffix('.1.gz').write_bytes(gzip.compress(man.read_bytes(),mtime=0))
-        man.unlink()
+        for name in ('stcc','stmkdisk'):
+            man=stage/'usr/share/man/man1'/(name+'.1')
+            man.with_suffix('.1.gz').write_bytes(gzip.compress(man.read_bytes(),mtime=0))
+            man.unlink()
         out=root/'dist';out.mkdir(exist_ok=True)
-        package=out/f'stcc_0.2.0-1_{arch}.deb'
+        package=out/f'stcc_0.3.0-1_{arch}.deb'
         run('dpkg-deb','--root-owner-group','--build',stage,package)
         # Inspect the archive and test its extracted executable with support data.
         extracted=stage/'verification'
@@ -49,6 +51,11 @@ Description: standalone C subset compiler and Devpac assembler for Atari ST
                 '-o',stage/'verify.TOS',env=env)
             assert (stage/'verify.TOS').read_bytes()[:2]==b'\x60\x1a'
         assert (extracted/'usr/share/man/man1/stcc.1.gz').exists()
+        assert (extracted/'usr/share/man/man1/stmkdisk.1.gz').exists()
+        run(extracted/'usr/bin/stmkdisk','-o',stage/'verify.st','--auto',stage/'verify.TOS',env=env)
+        image=(stage/'verify.st').read_bytes()
+        assert len(image)==720*1024 and image[11:13]==b'\x00\x02'
+        assert b'AUTO       ' in image and b'VERIFY  PRG' in image
         print(package)
 
 if __name__=='__main__':main()

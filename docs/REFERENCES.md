@@ -25,8 +25,12 @@ repris. Les moteurs externes servent uniquement à vérifier l'exécution.
   https://bus-error.nokturnal.pl/atari_compendium/html/appenda.htm
   https://bus-error.nokturnal.pl/atari_compendium/html/appendb.htm
 - Hatari, documentation officielle d'utilisation et du debugger :
+  Formats de disquettes et images brutes .ST :
   https://www.hatari-emu.org/doc/manual.html
   https://www.hatari-emu.org/doc/debugger.html
+- Steem Engine, documentation officielle livrée avec les sources, gestionnaire
+  de disquettes et format .ST :
+  https://github.com/gbouthenot/Steem-Engine/blob/master/steem/doc/readme.txt
 - EmuTOS, manuel et diffusion officiels :
   https://emutos.github.io/manual/
   https://sourceforge.net/projects/emutos/files/emutos/1.4/

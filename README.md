@@ -1,4 +1,4 @@
-# stcc 0.2 — C et assembleur Devpac pour Atari ST
+# stcc 0.3 — C et assembleur Devpac pour Atari ST
 
 `stcc` est un compilateur croisé autonome écrit en C99, avec son propre
 préprocesseur, analyseur C, générateur 68000, assembleur, format objet et éditeur
@@ -12,7 +12,10 @@ C89 complet.** Les flottants logiciels sont laissés aux exercices, avec la
 virgule fixe ; le passage/retour de structures par valeur reste exclu.
 Voir [l'état détaillé](docs/STATUS.md) avant de porter du code.
 
-Nouveautés 0.2 : [champs de bits](docs/BITFIELDS.md),
+Nouveauté 0.3 : [`stmkdisk`](docs/MKDISK.md), binaire Linux autonome pour créer
+une disquette FAT12 `.ST` à partir de fichiers et dossiers, pour Hatari/Steem.
+
+Ajouts 0.2 : [champs de bits](docs/BITFIELDS.md),
 [`__interrupt__` et `__naked__`](docs/INTERRUPTS.md), quatre nouveaux exemples.
 Le code reste relocalisable : on installe son adresse dans un vecteur Atari.
 
@@ -43,6 +46,25 @@ mais le runtime actuel appelle seulement `int main(void)`.
 Les `.o` sont au format interne STCO v1, pas des objets DRI/GST/ELF.
 L'interopérabilité initiale avec Devpac passe par les sources assembleur
 et la convention d'appel documentée, pas par ses fichiers objets binaires.
+
+## Une disquette à partir des exécutables
+
+```sh
+./stmkdisk -o COURS.ST --root examples/bin
+./stmkdisk -o DEMO.ST --auto BONJOUR.TOS --add README.md LIREMOI.TXT
+hatari --tos /chemin/etos192us.img --disk-a DEMO.ST
+```
+
+L'image brute `.ST` contient une disquette FAT12 de 720 Kio par défaut.
+Elle s'insère aussi dans le lecteur A de Steem Engine. Les fichiers et dossiers
+positionnels sont copiés à la racine ; `--root` copie le contenu d'un dossier.
+`--auto` place le programme dans `AUTO` avec une extension `.PRG` pour que TOS
+le lance au démarrage. `--size 360` et `--size 800` sont également disponibles.
+
+Les noms dans l'image doivent être au format Atari 8.3 ; `--add SOURCE DEST`
+permet un renommage explicite. Une sortie existante demande `--force`.
+L'outil est construit et installé avec le compilateur, sans `mkfs`, `mtools`,
+montage ni privilège root. Voir [MKDISK.md](docs/MKDISK.md).
 
 ## Premier appel GEMDOS
 
@@ -195,6 +217,7 @@ L'architecture du paquet est celle du compilateur **Linux**, pas celle du ST.
 
 ## Organisation
 
+- `src/mkdisk.c` : utilitaire hôte FAT12 indépendant, binaire `stmkdisk`.
 - `src/pp.c` : préprocesseur, inclusions et macros.
 - `src/lex.c` : tokens C, constantes et capture opaque des blocs Devpac.
 - `src/type.c` : types cibles, promotions, compatibilité et dimensions.

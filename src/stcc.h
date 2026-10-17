@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#define VERSION "0.2.0"
+#define VERSION "0.3.0"
 #define STCC_MAX_INPUT (16u * 1024u * 1024u)
 #define GROW(a, n, c)                                                                              \
     do {                                                                                           \

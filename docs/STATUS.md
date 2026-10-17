@@ -1,4 +1,4 @@
-# État de stcc 0.2
+# État de stcc 0.3
 
 ## Implémenté
 
@@ -29,6 +29,8 @@
 - `__interrupt__` : sauvegarde intégrale et retour RTE ; `__naked__` : entrée
   entièrement assembleur sans instructions ajoutées. Voir INTERRUPTS.md.
 - Runtime TOS : basepage, BSS, pile, Mshrink, main(void), Pterm.
+- `stmkdisk` : images de disquette FAT12 `.ST` de 360/720/800 Kio, import
+  récursif, chemins 8.3, dossier AUTO ; voir MKDISK.md.
 - Exemples et infrastructure de tests CPU et Hatari, fichiers Debian.
 
 ## Non implémenté ou incomplet — ne pas annoncer ANSI C89 complet

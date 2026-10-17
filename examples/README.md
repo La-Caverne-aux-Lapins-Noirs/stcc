@@ -1,4 +1,4 @@
-# Dix étapes pédagogiques
+# Quatorze étapes pédagogiques
 
 Depuis la racine : `make examples`. Les exécutables ont des noms 8.3 dans `bin/`.
 Aucun exemple n'utilise une bibliothèque Atari externe.
@@ -15,6 +15,10 @@ Aucun exemple n'utilise une bibliothèque Atari externe.
 | 8 | `08_video.c` | Physbase, accès volatile, motif temporaire puis restauration |
 | 9 | `09_multi/` | deux unités C, en-tête et variable externe |
 | 10 | `10_mix/` | routine Devpac respectant l'ABI appelée depuis C |
+| 11 | `11_bits.c` | représentation big-endian et mises à jour des champs de bits |
+| 12 | `12_interrupts.c` | exceptions imbriquées, retour RTE et restauration du contexte |
+| 13 | `13_naked_chain.c` | chaînage avec une entrée assembleur brute |
+| 14 | `14_vbl.c` | callback de la file VBL TOS avec retour RTS |
 
 L'étape 8 fonctionne quelle que soit la résolution ST : elle ne touche que
 les 640 premiers octets de l'écran. Le motif est très bref ; augmenter la
@@ -34,3 +38,19 @@ attend une fonction `_main`, c'est-à-dire une définition C de `main`.
 Les élèves peuvent partir des bindings de l'étape 7 pour en écrire d'autres.
 L'ordre des paramètres GEMDOS est celui de TOS, indépendant de l'ordre des
 arguments C ; le bloc inline construit explicitement la pile système.
+
+Pour mettre tous les exécutables sur une disquette :
+
+```sh
+make all examples
+./stmkdisk -o COURS.ST --root examples/bin
+```
+
+Insérer `COURS.ST` dans A sous Hatari ou Steem Engine et ouvrir le lecteur
+sur le bureau. Pour un seul programme lancé au démarrage :
+
+```sh
+./stmkdisk -o DEMO.ST --auto examples/bin/05GEMDOS.TOS
+```
+
+Voir `docs/MKDISK.md` pour les ressources, les noms 8.3 et les capacités.

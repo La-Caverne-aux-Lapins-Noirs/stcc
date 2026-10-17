@@ -1,3 +1,12 @@
+stcc (0.3.0-1) unstable; urgency=low
+
+  * Add native stmkdisk: standalone FAT12 .ST floppy image creation.
+  * Import recursive directories, explicit 8.3 paths and AUTO programs.
+  * Add disk checks and real floppy read/write tests under Hatari/EmuTOS.
+  * Install both binaries and their manual pages.
+
+ -- EFRITS <contact@efrits.fr>  Sat, 17 Oct 2026 13:00:00 +0000
+
 stcc (0.2.0-1) unstable; urgency=low
 
   * Add C89 int bit fields, layout, initialization and partial updates.

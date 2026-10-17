@@ -1,5 +1,0 @@
-/tmp/stcc-deps/root/usr/lib/python3/dist-packages/unicorn/unicorn.py:8: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
-  import pkg_resources
-PASS Hatari ST/68000 12IRQ.TOS
-PASS Hatari ST/68000 13CHAIN.TOS
-PASS Hatari ST/68000 14VBL.TOS

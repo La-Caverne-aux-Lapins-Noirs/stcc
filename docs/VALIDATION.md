@@ -1,3 +1,41 @@
+# Validation de la livraison 0.3.0
+
+Vérifications du 17 octobre 2026. La modification fonctionnelle de cette version
+est l'ajout du binaire hôte `stmkdisk` ; le compilateur C conserve son comportement.
+
+| Contrôle ajouté | Résultat observé |
+|---|---|
+| Construction native C99 avec avertissements stricts | réussie |
+| AddressSanitizer + UndefinedBehaviorSanitizer sur stmkdisk | les 28 contrôles réussis, contrôle des fuites désactivé |
+| Suite stmkdisk | 28 contrôles : FAT12, octets, sous-dossiers de plusieurs clusters, noms, capacités, erreurs et publication |
+| Images 360 / 720 / 800 Kio | toutes lues par mtools 4.0.43, toutes validées sans correction par fsck.fat 4.2 en mode Atari |
+| Démarrage depuis A sous Hatari 2.4.1 / EmuTOS 1.4 US | les trois géométries démarrent leur programme AUTO |
+| Lecture réelle par GEMDOS | fichier de 5 003 octets, plusieurs clusters, recherche dans un sous-dossier de plusieurs clusters et résolution de `..` |
+| Écriture réelle par GEMDOS | création de RESULT.BIN ; contenu relu dans l'image après sortie de Hatari |
+
+Le test disquette n'utilise aucun disque GEMDOS provenant d'un dossier Linux.
+La ROM reste séparée. Steem Engine n'a pas été exécuté ici ; l'image vise son
+format `.ST` brut documenté. Les rapports et journaux `mkdisk-*` de `validation/`
+correspondent à ces essais. Les outils FAT externes sont seulement des références
+de test, pas des dépendances du générateur.
+
+Reproduction :
+
+```sh
+make all test
+python3 tests/mkdisk_hatari.py --tos /chemin/etos192us.img \
+    --fsck /chemin/fsck.fat --mtools-dir /chemin/bin
+```
+
+La livraison est un patch de sources applicable à la version 0.2.0 avec
+`patch -p1`. Le binaire `stmkdisk` se construit ensuite par `make`.
+
+Les options fsck/mtools sont facultatives. La suite de régression du compilateur,
+la CLI et les conventions de fonction sont également relancées pour vérifier
+l'intégration de `make test`.
+
+---
+
 # Validation de la livraison 0.2.0
 
 Vérifications réalisées le 17 octobre 2026, avec le code livré.

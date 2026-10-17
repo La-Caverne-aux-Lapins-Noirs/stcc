@@ -1,0 +1,61 @@
+.TH STMKDISK 1 "2026-10-17" "stcc 0.3.0"
+.SH NAME
+stmkdisk \- create an Atari FAT12 floppy image for Hatari and Steem Engine
+.SH SYNOPSIS
+.B stmkdisk
+.BI \-o " IMAGE.ST"
+.RI [ options ] " [FILE|DIRECTORY ...]"
+.SH DESCRIPTION
+Create a raw .ST floppy image, default 720 KiB, from regular files and recursive
+directories. No mount, root privileges, external filesystem tools or ROM are
+needed to create an image. TOS or EmuTOS is needed to use it in an emulator.
+Image names use uppercase ASCII 8.3. Long names must be explicitly mapped.
+.SH OPTIONS
+.TP
+.BI \-o " IMAGE.ST"
+Required output path. Existing images are refused unless --force is given.
+.TP
+.BI \-\-size " 360|720|800"
+Capacity in KiB. All use 80 tracks, 512-byte sectors, and FAT12 with 1 KiB clusters.
+360 KiB has one side; 720 and 800 KiB have two. 800 KiB uses 10 sectors/track.
+.TP
+.BI \-\-label " LABEL"
+Volume label, 1 to 11 ASCII characters. Default STCC.
+.TP
+.BI \-\-root " DIRECTORY"
+Import directory contents into the root, without the directory's own name.
+.TP
+.BI \-\-add " SOURCE DEST"
+Import under an explicit relative 8.3 path. Create missing destination parents.
+.TP
+.BI \-\-auto " PROGRAM"
+Copy an 8.3 .PRG or .TOS file to AUTO, using .PRG in the image.
+.TP
+.B \-\-force
+Replace an existing output image after all input validation succeeds.
+.TP
+.B \-\-
+Treat following arguments as source paths.
+.TP
+.BR \-h ", " \-\-help
+Show help.
+.TP
+.BR \-v ", " \-\-version
+Show version.
+.SH EXAMPLE
+.nf
+stcc hello.c -o HELLO.TOS
+stmkdisk -o DEMO.ST --auto HELLO.TOS --add readme.txt LIREMOI.TXT
+hatari --tos /path/etos192us.img --disk-a DEMO.ST
+.fi
+.SH NOTES
+Symlinks, special files, duplicate names, root directory overflow and disk full
+are rejected. Timestamps are fixed and the Atari media serial is content-derived.
+The boot sector is non-executable; AUTO startup is handled by TOS.
+Without inputs, an empty formatted image is created. Publication without --force
+requires a filesystem supporting POSIX hard links.
+.SH EXIT STATUS
+Zero on success; nonzero with a diagnostic on failure.
+.SH SEE ALSO
+.BR stcc (1)
+and MKDISK.md in the installed stcc documentation directory.
