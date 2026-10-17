@@ -1,0 +1,10 @@
+{
+  "emulator": "Hatari 2.4.1",
+  "cpu": "M68000",
+  "rom": "EmuTOS 1.4 US 192K",
+  "nested_TRAP": true,
+  "registers_verified": 15,
+  "SR_and_SP_restored": true,
+  "early_return_RTE": true,
+  "C_helper_calls": true
+}

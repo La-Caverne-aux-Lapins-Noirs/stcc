@@ -1,0 +1,18 @@
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/main.o src/main.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/util.o src/util.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/object.o src/object.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/asm.o src/asm.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/pp.o src/pp.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/lex.o src/lex.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/type.o src/type.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/c.o src/c.c
+cc  -DSTCC_DATADIR='"/usr/share/stcc"' -O2 -g -Wall -Wextra -Wpedantic -Wshadow -Wstrict-prototypes -Wno-misleading-indentation -std=c99 -c -o src/gen.o src/gen.c
+cc -O2 -g  -o stcc src/main.o src/util.o src/object.o src/asm.o src/pp.o src/lex.o src/type.o src/c.o src/gen.o
+install -d /tmp/stcc-deb-j1d8nsgb/usr/bin /tmp/stcc-deb-j1d8nsgb/usr/share/stcc/runtime /tmp/stcc-deb-j1d8nsgb/usr/share/stcc/include /tmp/stcc-deb-j1d8nsgb/usr/share/stcc/docs /tmp/stcc-deb-j1d8nsgb/usr/share/man/man1
+install -m755 stcc /tmp/stcc-deb-j1d8nsgb/usr/bin/stcc
+install -m644 runtime/*.s /tmp/stcc-deb-j1d8nsgb/usr/share/stcc/runtime/
+install -m644 include/*.h /tmp/stcc-deb-j1d8nsgb/usr/share/stcc/include/
+install -m644 README.md LICENSE docs/*.md /tmp/stcc-deb-j1d8nsgb/usr/share/stcc/docs/
+install -m644 docs/stcc.1 /tmp/stcc-deb-j1d8nsgb/usr/share/man/man1/
+dpkg-deb: building package 'stcc' in '/workspace/scratch/d7e59718a9d2/stcc/dist/stcc_0.2.0-1_amd64.deb'.
+/workspace/scratch/d7e59718a9d2/stcc/dist/stcc_0.2.0-1_amd64.deb

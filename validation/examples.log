@@ -1,0 +1,14 @@
+PASS example 01MIN.TOS compile + execute
+PASS example 02CALC.TOS compile + execute
+PASS example 03STRUCT.TOS compile + execute
+PASS example 04RECUR.TOS compile + execute
+PASS example 05GEMDOS.TOS compile + execute
+PASS example 06KEY.TOS compile + execute
+PASS example 07FILE.TOS compile + execute
+PASS example 08VIDEO.PRG compile + execute
+PASS example 09MULTI.TOS compile + execute
+PASS example 10MIX.TOS compile + execute
+PASS example 11BITS.TOS compile + execute
+PASS example 12IRQ.TOS compile (OS execution in tests/hatari.py)
+PASS example 13CHAIN.TOS compile (OS execution in tests/hatari.py)
+PASS example 14VBL.TOS compile (OS execution in tests/hatari.py)

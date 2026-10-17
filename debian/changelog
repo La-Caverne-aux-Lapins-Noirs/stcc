@@ -1,0 +1,16 @@
+stcc (0.2.0-1) unstable; urgency=low
+
+  * Add C89 int bit fields, layout, initialization and partial updates.
+  * Add __interrupt__ full-context entry/RTE and __naked__ raw entry bodies.
+  * Add nested exception, raw chaining and deferred VBL examples and tests.
+  * Keep floating point and by-value aggregate calls outside the current scope.
+
+ -- EFRITS <contact@efrits.fr>  Sat, 17 Oct 2026 14:00:00 +0000
+
+stcc (0.1.0-1) unstable; urgency=low
+
+  * Initial standalone 68000 / TOS compiler and Devpac assembler.
+  * Integer C89 subset, inline Devpac, internal objects and TOS relocation.
+  * Runtime, examples, CPU regression tests and optional Hatari tests.
+
+ -- EFRITS <contact@efrits.fr>  Fri, 16 Oct 2026 22:00:00 +0000

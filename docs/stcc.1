@@ -1,0 +1,63 @@
+.TH STCC 1 "2026-10-17" "stcc 0.2.0"
+.SH NAME
+stcc \- freestanding C subset and Devpac assembler for Atari ST
+.SH SYNOPSIS
+.B stcc
+.RI [ options ] " input.c input.s input.o ..."
+.SH DESCRIPTION
+stcc runs on Linux and emits relocatable TOS executables for the original
+Motorola 68000. It includes its own assembler and linker and needs no Atari libc.
+This release supports integer C89 including int bit fields. It does not
+implement complete ANSI C89: floating point, K&R definitions, and by-value
+aggregate arguments/results are unavailable.
+.PP
+The __interrupt__ function specifier saves all data/address registers and
+returns with RTE. The __naked__ specifier emits only the user assembly body.
+Both require void (void). See INTERRUPTS.md for entry contracts and examples.
+.SH OPTIONS
+.TP
+.BI \-o " file"
+Select output file (default a.TOS for linking).
+.TP
+.BI \-I " directory"
+Add a C include search directory.
+.TP
+.BI \-D " NAME[=VALUE]"
+Define a C preprocessor macro.
+.TP
+.B \-E
+Preprocess C only.
+.TP
+.B \-S
+Emit Devpac assembly.
+.TP
+.B \-c
+Emit an internal STCO v1 object.
+.TP
+.B \-\-nostartfiles
+Omit TOS startup, stack and arithmetic support.
+.TP
+.BI \-\-entry " symbol"
+Assert entry symbol at TEXT offset zero.
+.TP
+.BI \-\-map " file"
+Write symbol map.
+.TP
+.BI \-\-data-dir " directory"
+Select runtime/include support root.
+.TP
+.BR \-v ", " \-\-version
+Print version and exit.
+.TP
+.B \-\-help
+Print help and exit.
+.SH ENVIRONMENT
+.TP
+.B STCC_DATA
+Runtime/include root, unless overridden by --data-dir.
+.SH FILES
+See README.md and docs under the installed share/stcc directory for the ABI,
+inline assembly contract, supported Devpac syntax and known limitations.
+.SH EXIT STATUS
+Zero on success, nonzero on a diagnostic. Target programs pass main's low
+16 return bits to GEMDOS Pterm.

@@ -1,0 +1,17 @@
+Source: stcc
+Section: devel
+Priority: optional
+Maintainer: EFRITS <contact@efrits.fr>
+Build-Depends: debhelper-compat (= 13), python3
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: stcc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Suggests: python3-unicorn, hatari
+Description: standalone C subset compiler and Devpac assembler for Atari ST
+ Linux-hosted compiler with a built-in Motorola 68000 assembler, object format,
+ linker and TOS runtime. Generates relocatable Atari ST PRG/TOS/TTP programs.
+ This release implements an integer and pointer C89 subset, not full ANSI C89.
+ Floating-point arithmetic and by-value aggregate calls are not yet supported.
