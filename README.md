@@ -1,8 +1,9 @@
-# stcc 0.3 — C et assembleur Devpac pour Atari ST
+# stcc 0.4 — C et assembleur Devpac pour Atari ST
 
 `stcc` est un compilateur croisé autonome écrit en C99, avec son propre
 préprocesseur, analyseur C, générateur 68000, assembleur, format objet et éditeur
-de liens. Il produit directement des `.TOS`, `.PRG` et `.TTP` relocalisables.
+de liens. Il produit directement des `.TOS`, `.PRG` et `.TTP` relocalisables,
+ou une ROM autonome avec le mode `--rom`.
 Son fonctionnement ne demande ni compilateur croisé, ni binutils Atari, ni libc
 Atari. Le runtime est assemblé par `stcc` lui-même.
 
@@ -12,7 +13,10 @@ C89 complet.** Les flottants logiciels sont laissés aux exercices, avec la
 virgule fixe ; le passage/retour de structures par valeur reste exclu.
 Voir [l'état détaillé](docs/STATUS.md) avant de porter du code.
 
-Nouveauté 0.3 : [`stmkdisk`](docs/MKDISK.md), binaire Linux autonome pour créer
+Nouveauté 0.4 : [liaison ROM et démarrage autonome du ST](docs/ROM.md), avec
+séparation code ROM / données RAM et exemple vidéo sans système préexistant.
+
+Ajout 0.3 : [`stmkdisk`](docs/MKDISK.md), binaire Linux autonome pour créer
 une disquette FAT12 `.ST` à partir de fichiers et dossiers, pour Hatari/Steem.
 
 Ajouts 0.2 : [champs de bits](docs/BITFIELDS.md),
@@ -65,6 +69,28 @@ Les noms dans l'image doivent être au format Atari 8.3 ; `--add SOURCE DEST`
 permet un renommage explicite. Une sortie existante demande `--force`.
 L'outil est construit et installé avec le compilateur, sans `mkfs`, `mtools`,
 montage ni privilège root. Voir [MKDISK.md](docs/MKDISK.md).
+
+## Une ROM sans TOS
+
+```sh
+make rom
+hatari --machine st --cpulevel 0 --cpuclock 8 --memsize 0 \
+    --monitor rgb --patch-tos off --fast-boot off --tos examples/bin/15ROM.IMG
+```
+
+Cette commande démarre la ROM créée par stcc, sans image Atari/EmuTOS externe.
+Le profil fourni utilise 512 Kio de RAM et une ROM de 192 Kio à `$FC0000`.
+L'exemple affiche un message par accès direct à la vidéo, puis s'arrête.
+Le mode monochrome est également pris en charge (`--monitor mono`).
+
+```sh
+./stcc --rom noyau.c pilotes.s -o NOYAU.IMG --map NOYAU.map
+```
+
+Le démarrage configure le MMU du ST, les vecteurs, les variables et la pile,
+puis appelle `int main(void)` en superviseur avec les IRQ masquées. Les appels
+TOS ne sont pas fournis. Voir [ROM.md](docs/ROM.md) pour le contrat, les adresses,
+les options de disposition et l'écriture de son propre démarrage.
 
 ## Premier appel GEMDOS
 
@@ -134,11 +160,16 @@ Voir [ABI et démarrage](docs/ABI.md).
 | `--help` | Afficher l'aide |
 | `--map fichier` | Écrire les adresses finales des symboles |
 | `--nostartfiles` | Omettre démarrage et support arithmétique ; entrée au premier octet TEXT |
-| `--entry symbole` | Vérifier qu'un symbole est à l'adresse relative zéro |
+| `--entry symbole` | Vérifier qu'un symbole est au premier octet TEXT |
+| `--rom` | Lier une image ROM brute avec démarrage autonome ST |
+| `--rom-base N`, `--rom-size N` | Adresse ROM et capacité en octets ; défaut `$FC0000`, 196608 |
+| `--ram-base N`, `--ram-limit N` | Arène DATA/BSS, borne haute exclusive ; défaut `$1000..$78000` |
 | `--data-dir dossier` | Choisir le dossier contenant `runtime/` et `include/` |
 
 Les options inconnues sont rejetées. Avec `-E`, `-S` ou `-c`, `-o` exige une seule
-source. Sans `-o`, la liaison écrit `a.TOS`. Les modes `-S` et `-c` prennent le
+source. Sans `-o`, la liaison écrit `a.TOS`, ou `a.rom` avec `--rom`.
+`--rom` exige la liaison ; les objets peuvent être produits auparavant avec `-c`.
+Les modes `-S` et `-c` prennent le
 nom de base de chaque source et écrivent dans le dossier courant.
 
 Le compilateur cherche ses fichiers de support dans `STCC_DATA`, puis à côté
@@ -172,10 +203,16 @@ sudo apt install hatari
 python3 tests/hatari.py --tos /chemin/etos192us.img --examples
 ```
 
-Obtenir une ROM EmuTOS auprès de son projet officiel, ou utiliser une ROM TOS
+Les nouveaux tests ROM démarrent les images de stcc sans autre système :
+
+```sh
+python3 tests/rom_hatari.py --hatari hatari
+```
+
+Pour la suite TOS, obtenir une ROM EmuTOS auprès de son projet officiel, ou utiliser une ROM TOS
 que vous détenez. Les ROMs employées sont celles fournies localement ; le dossier optionnel
 `tos/` peut être inclus dans le paquet comme décrit ci-dessous.
-Les tests Hatari utilisent une machine ST, un M68000 à 8 MHz et 1 Mio de RAM,
+Les tests TOS sous Hatari utilisent une machine ST, un M68000 à 8 MHz et 1 Mio de RAM,
 avec le pilote vidéo SDL `dummy`. Ils vérifient le code passé à `Pterm`, et
 échouent si le programme n'atteint pas la terminaison attendue.
 
@@ -232,7 +269,7 @@ Placer les images de TOS dans `tos/` avant de construire le paquet :
 
 ```sh
 make deb
-sudo dpkg -i dist/stcc_0.3.1-1_amd64.deb
+sudo dpkg -i dist/stcc_0.4.0-1_amd64.deb
 hatari --tos /usr/share/stcc/tos/etos192us.img --disk-a DEMO.ST
 ```
 
@@ -258,10 +295,11 @@ utilise ces données embarquées et n'a pas besoin du dossier source.
 - `src/c.c` : déclarateurs, analyse sémantique, AST typé, constantes, initialisations.
 - `src/gen.c` : parcours de l'AST et émission du code 68000.
 - `src/asm.c` : assembleur Devpac intégré et validation des modes d'adressage.
-- `src/object.c` : objets STCO, symboles, fixups, liaison et fichier TOS.
-- `runtime/` : démarrage TOS, pile, multiplication et division 32 bits.
+- `src/object.c` : objets STCO, symboles, fixups, liaisons TOS et ROM.
+- `runtime/` : démarrages TOS/ROM, pile, multiplication et division 32 bits.
 - `include/` : en-têtes cibles `limits.h`, `stddef.h`, `stdarg.h`, `stcc.h`.
 - `examples/` : quatorze étapes progressives ; binaires dans `examples/bin/`.
+- `examples/15_rom/` : démarrage et affichage sans TOS (`make rom`).
 - `tests/` : tests positifs, négatifs, encodages et exécution indépendante.
 
 L'AST typé constitue la représentation intermédiaire de cette version. Il n'y a

@@ -34,6 +34,13 @@ repris. Les moteurs externes servent uniquement à vérifier l'exécution.
 - EmuTOS, manuel et diffusion officiels :
   https://emutos.github.io/manual/
   https://sourceforge.net/projects/emutos/files/emutos/1.4/
+- Liaison et démarrage ROM : formats d'en-tête vérifiés dans le chargeur Hatari,
+  séquence de reset et configuration du MMU ST confrontées à la documentation
+  de démarrage EmuTOS. Ces sources de référence ne sont pas intégrées au runtime :
+  https://github.com/hatari/hatari/blob/main/src/tos.c
+  https://github.com/emutos/emutos/blob/master/bios/startup.S
+  https://github.com/emutos/emutos/blob/master/bios/memory.S
+  https://github.com/emutos/emutos/blob/master/doc/memdetect.txt
 
 La conformité C89 complète n'est pas revendiquée. Les règles sémantiques
 implémentées et les écarts connus sont décrits dans STATUS.md et ABI.md.

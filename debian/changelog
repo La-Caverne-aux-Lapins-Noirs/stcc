@@ -1,3 +1,12 @@
+stcc (0.4.0-1) unstable; urgency=low
+
+  * Add fixed-address ROM linking with independent ROM and RAM placement.
+  * Add original-ST bootstrap, DATA/BSS initialization, vectors and stack.
+  * Add standalone C video example and cold-boot tests without external TOS.
+  * Install the ROM bootstrap/documentation and verify packaged ROM generation.
+
+ -- EFRITS <contact@efrits.fr>  Sat, 17 Oct 2026 18:30:00 +0000
+
 stcc (0.3.1-1) unstable; urgency=low
 
   * Separate clean from fclean and remove generated test traces and temporaries.

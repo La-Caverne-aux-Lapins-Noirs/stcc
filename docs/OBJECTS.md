@@ -1,4 +1,4 @@
-# Des symboles au programme relocalisable
+# Des symboles au programme TOS ou à la ROM
 
 ## STCO v1
 
@@ -72,3 +72,17 @@ Un long initial nul représente une liste vide.
 avec le debugger, ajouter l'adresse réelle du TEXT allouée par TOS. Le format
 de cette carte n'est pas directement celui des symboles DRI ni un format de
 symboles de débogage normalisé.
+
+## Image ROM
+
+Le mode `--rom` utilise les mêmes objets STCO v1 et règles de résolution.
+Il affecte à TEXT une adresse ROM fixe, à DATA une adresse RAM fixe et à BSS
+la RAM qui suit DATA. Les valeurs des fixups sont liées à ces adresses finales.
+Le coefficient d'adresse sert encore à distinguer les cibles PC-relatives
+des déplacements numériques ; aucune relocation TOS n'est écrite.
+
+Le fichier contient TEXT puis l'image initiale de DATA, suivis de `$FF`
+jusqu'à la capacité demandée. Le démarrage copie cette image DATA en RAM.
+Le BSS n'occupe pas le fichier. `--map` indique les adresses absolues et les
+symboles réservés du linker décrits dans [ROM.md](ROM.md). L'en-tête de ROM
+appartient au module de démarrage, et non au format objet ou au linker brut.

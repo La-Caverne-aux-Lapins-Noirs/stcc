@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#define VERSION "0.3.1"
+#define VERSION "0.4.0"
 #define STCC_MAX_INPUT (16u * 1024u * 1024u)
 #define GROW(a, n, c)                                                                              \
     do {                                                                                           \
@@ -88,6 +88,10 @@ void add_fix(Object *, int, uint32_t, int, int, uint32_t, int, const char *);
 void object_write(Object *, const char *);
 Object *object_read(const char *);
 void link_tos(Object **, int, const char *, const char *, const char *);
+typedef struct {
+    uint32_t base, size, ram_base, ram_limit;
+} RomOptions;
+void link_rom(Object **, int, const char *, const char *, const char *, const RomOptions *);
 Object *assemble(const char *, const char *);
 char *preprocess(const char *, char **, int, char **, int);
 char *compile_c(const char *, const char *);

@@ -1,11 +1,12 @@
-.TH STCC 1 "2026-10-17" "stcc 0.3.1"
+.TH STCC 1 "2026-10-17" "stcc 0.4.0"
 .SH NAME
 stcc \- freestanding C subset and Devpac assembler for Atari ST
 .SH SYNOPSIS
 .B stcc
 .RI [ options ] " input.c input.s input.o ..."
 .SH DESCRIPTION
-stcc runs on Linux and emits relocatable TOS executables for the original
+stcc runs on Linux and emits relocatable TOS executables or fixed-address raw
+ROM images for the original
 Motorola 68000. It includes its own assembler and linker and needs no Atari libc.
 This release supports integer C89 including int bit fields. It does not
 implement complete ANSI C89: floating point, K&R definitions, and by-value
@@ -17,7 +18,7 @@ Both require void (void). See INTERRUPTS.md for entry contracts and examples.
 .SH OPTIONS
 .TP
 .BI \-o " file"
-Select output file (default a.TOS for linking).
+Select output file (default a.TOS, or a.rom with --rom).
 .TP
 .BI \-I " directory"
 Add a C include search directory.
@@ -35,10 +36,31 @@ Emit Devpac assembly.
 Emit an internal STCO v1 object.
 .TP
 .B \-\-nostartfiles
-Omit TOS startup, stack and arithmetic support.
+Omit startup, stack and arithmetic support, also in ROM mode.
+.TP
+.B \-\-rom
+Link a raw ROM image instead of a TOS executable. The default startup targets
+the original ST with at least 512 KiB in RAM bank zero, reserves a screen at
+0x78000, copies DATA to RAM, clears BSS and calls main in supervisor mode with
+hardware IRQs masked. It provides no TOS services. Returning from main stops
+the CPU with D0 holding the result. Requires linking; incompatible with -E/-S/-c.
+.TP
+.BI \-\-rom\-base " number"
+ROM address (default 0xfc0000). Layout options require --rom.
+.TP
+.BI \-\-rom\-size " number"
+ROM byte count (default 196608), padded with 0xff.
+.TP
+.BI \-\-ram\-base " number"
+Writable DATA address (default 0x1000); BSS follows DATA.
+.TP
+.BI \-\-ram\-limit " number"
+Exclusive upper DATA/BSS address (default 0x78000). Numbers are decimal or
+0x-prefixed hexadecimal; addresses and sizes must be even. Non-default ROM
+address/size or a RAM limit above 0x78000 require a custom --nostartfiles bootstrap.
 .TP
 .BI \-\-entry " symbol"
-Assert entry symbol at TEXT offset zero.
+Assert entry symbol at the first TEXT byte; does not synthesize a reset vector.
 .TP
 .BI \-\-map " file"
 Write symbol map.
@@ -56,7 +78,7 @@ Print help and exit.
 .B STCC_DATA
 Runtime/include root, unless overridden by --data-dir.
 .SH FILES
-See README.md and docs under the installed share/stcc directory for the ABI,
+See README.md, ROM.md and docs under the installed share/stcc directory for the ABI,
 inline assembly contract, supported Devpac syntax and known limitations.
 .SH EXIT STATUS
 Zero on success, nonzero on a diagnostic. Target programs pass main's low

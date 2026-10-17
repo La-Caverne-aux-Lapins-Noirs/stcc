@@ -1,4 +1,4 @@
-# État de stcc 0.3
+# État de stcc 0.4
 
 ## Implémenté
 
@@ -29,6 +29,8 @@
 - `__interrupt__` : sauvegarde intégrale et retour RTE ; `__naked__` : entrée
   entièrement assembleur sans instructions ajoutées. Voir INTERRUPTS.md.
 - Runtime TOS : basepage, BSS, pile, Mshrink, main(void), Pterm.
+- Mode ROM : liaison absolue, code en ROM et variables en RAM, copie DATA,
+  effacement BSS, pile, vecteurs, démarrage ST 512 Kio autonome ; voir ROM.md.
 - `stmkdisk` : images de disquette FAT12 `.ST` de 360/720/800 Kio, import
   récursif, chemins 8.3, dossier AUTO ; voir MKDISK.md.
 - Exemples et infrastructure de tests CPU et Hatari, fichiers Debian.
@@ -50,6 +52,7 @@
 | Objets | STCO interne seulement ; pas de lecteur DRI/GST/ELF ni d'archives `.a` |
 | Débogage | carte de symboles texte ; pas encore de table de symboles DRI dans le PRG |
 | Démarrage | main(void) seulement ; ligne de commande brute accessible par la basepage |
+| ROM | profil ST fixe de 512 Kio sans détection RAM ; pas d'API TOS ni de section C rodata distincte ; validation Hatari seulement |
 | Ressources | pile 16 Kio fixe, cadre local 32760 octets maximum, branches 16 bits sans relaxation |
 | Bibliothèque | aucune libc Atari ; seulement les en-têtes et primitives du compilateur |
 | Assembleur | voir DEVPAC.md pour les directives et extensions manquantes |

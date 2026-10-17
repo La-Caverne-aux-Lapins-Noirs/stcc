@@ -1,4 +1,4 @@
-# ABI 68000 et démarrage TOS
+# ABI 68000 et démarrages TOS / ROM
 
 ## Objets et représentation
 
@@ -98,6 +98,15 @@ une table de symboles de taille zéro et des flags zéro. `ABSFLAG` vaut zéro.
 Les longwords contenant une adresse chargeable figurent dans la chaîne de
 relocalisations TOS ; aucune adresse de chargement n'est imposée. Les
 références PC-relatives ne demandent pas de relocation du chargeur.
+
+## Démarrage ROM
+
+`--rom` conserve l'ABI C, mais utilise `runtime/rom_start.s` et une liaison
+absolue avec DATA/BSS en RAM. Le démarrage fourni appelle `int main(void)`
+en superviseur, IRQ masquées, sans basepage ni services TOS. Il installe des
+vecteurs d'arrêt, copie DATA, efface BSS et réserve la pile de 16 Kio.
+Le retour de `main` provoque un `STOP` avec son résultat dans D0.
+Voir [ROM.md](ROM.md) pour le profil matériel et le remplacement du démarrage.
 
 Les branches C sont des déplacements signés de 16 bits ; une fonction qui
 les dépasse est rejetée à la liaison. Le cadre local est limité à 32760 octets.

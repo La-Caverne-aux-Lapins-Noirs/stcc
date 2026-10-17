@@ -194,7 +194,24 @@ typedef struct {
     int n;
     Object *cur;
     int depth;
+    int nbuiltin;
+    struct {
+        const char *name;
+        Value value;
+    } builtin[12];
 } Link;
+static void builtin(Link *l, const char *name, uint32_t value, int address)
+{
+    int i;
+    for (i = 0; i < l->n; i++) {
+        Symbol *s = symbol(l->objs[i], name, 0);
+        if (s && s->sec != -1)
+            die("reserved ROM linker symbol '%s'", name);
+    }
+    l->builtin[l->nbuiltin].name = name;
+    l->builtin[l->nbuiltin].value.v = value;
+    l->builtin[l->nbuiltin++].value.base = address;
+}
 static Value lookup(void *p, const char *name)
 {
     Link *l = p;
@@ -202,6 +219,9 @@ static Value lookup(void *p, const char *name)
     Object *owner = l->cur;
     int i;
     Value v = {0, 0};
+    for (i = 0; i < l->nbuiltin; i++)
+        if (!strcmp(l->builtin[i].name, name))
+            return l->builtin[i].value;
     if (!s || s->sec == -1) {
         s = NULL;
         for (i = 0; i < l->n; i++) {
@@ -235,30 +255,68 @@ static int cmp32(const void *a, const void *b)
     uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
     return (x > y) - (x < y);
 }
-void link_tos(Object **objs, int n, const char *out, const char *entry, const char *map)
+static void link_image(Object **objs, int n, const char *out, const char *entry, const char *map,
+                       const RomOptions *rom)
 {
     uint32_t len[3] = {0, 0, 0}, total = 0, *rel = NULL, nrel = 0, crel = 0, pos = 0, prev;
+    uint32_t address[3] = {0, 0, 0}, file_offset[2];
     int i, j, k;
     Bytes image = {0}, file = {0};
-    Link l;
+    Link l = {0};
     FILE *f;
     Value v;
     l.objs = objs;
     l.n = n;
-    l.depth = 0;
+    if (rom) {
+        if (!rom->size || ((rom->base | rom->size | rom->ram_base | rom->ram_limit) & 1) ||
+            rom->base >= 0x1000000 || rom->size > 0x1000000 - rom->base || rom->ram_base < 0x400 ||
+            rom->ram_base >= rom->ram_limit || rom->ram_limit > 0x400000)
+            die("invalid ROM layout: use even addresses/sizes, a 24-bit ROM range and "
+                "RAM within 0x400..0x400000");
+        if (rom->base < rom->ram_limit && rom->base + rom->size > rom->ram_base)
+            die("ROM and RAM ranges overlap");
+    }
     for (k = 0; k < 3; k++) {
+        address[k] = rom ? (k == 0 ? rom->base : rom->ram_base + (k == 2 ? len[1] : 0)) : total;
         for (i = 0; i < n; i++) {
             len[k] = (len[k] + 1) & ~1u;
-            objs[i]->start[k] = total + len[k];
+            objs[i]->start[k] = address[k] + len[k];
+            if (len[k] > STCC_MAX_INPUT * 4u - total ||
+                objs[i]->seg[k].n > STCC_MAX_INPUT * 4u - total - len[k])
+                die("linked image too large");
             len[k] += objs[i]->seg[k].n;
         }
         len[k] = (len[k] + 1) & ~1u;
+        if (len[k] > STCC_MAX_INPUT * 4u - total)
+            die("linked image too large");
         total += len[k];
     }
     if (!len[0])
         die("empty TEXT: an executable needs an entry instruction");
     if (total > STCC_MAX_INPUT * 4u)
         die("linked image too large");
+    file_offset[0] = 0;
+    file_offset[1] = len[0];
+    if (rom) {
+        if (len[0] + len[1] > rom->size)
+            die("ROM overflow: TEXT + DATA need %u bytes, capacity is %u", len[0] + len[1],
+                rom->size);
+        if (len[1] + len[2] > rom->ram_limit - rom->ram_base)
+            die("RAM overflow: DATA + BSS need %u bytes, capacity is %u", len[1] + len[2],
+                rom->ram_limit - rom->ram_base);
+        builtin(&l, "__stcc_rom_base", rom->base, 1);
+        builtin(&l, "__stcc_rom_end", rom->base + rom->size, 1);
+        builtin(&l, "__stcc_rom_used_end", rom->base + len[0] + len[1], 1);
+        builtin(&l, "__stcc_text_end", rom->base + len[0], 1);
+        builtin(&l, "__stcc_data_load", rom->base + len[0], 1);
+        builtin(&l, "__stcc_data_start", address[1], 1);
+        builtin(&l, "__stcc_data_end", address[1] + len[1], 1);
+        builtin(&l, "__stcc_data_size", len[1], 0);
+        builtin(&l, "__stcc_bss_start", address[2], 1);
+        builtin(&l, "__stcc_bss_end", address[2] + len[2], 1);
+        builtin(&l, "__stcc_bss_size", len[2], 0);
+        builtin(&l, "__stcc_ram_limit", rom->ram_limit, 1);
+    }
     for (i = 0; i < n; i++)
         for (j = 0; j < objs[i]->nsym; j++) {
             Symbol *s = &objs[i]->sym[j];
@@ -274,7 +332,7 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
     if (entry) {
         l.cur = objs[0];
         v = lookup(&l, entry);
-        if (v.v != 0 || v.base != 1)
+        if (v.v != address[0] || v.base != 1)
             die("entry '%s' must be the first TEXT byte (use --nostartfiles for assembly)", entry);
     }
     for (pos = 0; pos < len[0] + len[1]; pos++)
@@ -282,13 +340,14 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
     for (i = 0; i < n; i++)
         for (k = 0; k < 2; k++)
             if (objs[i]->seg[k].n)
-                memcpy(image.p + objs[i]->start[k], objs[i]->seg[k].p, objs[i]->seg[k].n);
+                memcpy(image.p + file_offset[k] + objs[i]->start[k] - address[k], objs[i]->seg[k].p,
+                       objs[i]->seg[k].n);
     for (i = 0; i < n; i++) {
         Object *o = objs[i];
         l.cur = o;
         for (j = 0; j < o->nfix; j++) {
             Fixup *r = &o->fix[j];
-            uint32_t at = o->start[r->sec] + r->off;
+            uint32_t at = file_offset[r->sec] + o->start[r->sec] - address[r->sec] + r->off;
             int64_t min, max;
             diag_file = r->file;
             diag_line = r->line;
@@ -299,7 +358,7 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
             }
             if (v.base < 0 || v.base > 1)
                 die("unrepresentable relocation");
-            if (v.base) {
+            if (v.base && !rom) {
                 if (r->width != 4 || r->relative)
                     die("TOS requires a 32-bit absolute relocation");
                 if (!at || (at & 1))
@@ -312,6 +371,10 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
             max = (r->check == 1 || r->check == 3) ? (INT64_C(1) << (r->width * 8 - 1)) - 1
                                                    : (INT64_C(1) << (r->width * 8)) - 1;
             if (r->check == 2) {
+                if (rom && v.base && v.v >= 0x8000 && v.v < 0xff8000)
+                    die("ROM symbol address does not fit sign-extended absolute short");
+                if (rom && v.v >= 0xff8000 && v.v <= 0xffffff)
+                    v.v = (int32_t)((uint32_t)v.v | 0xff000000u);
                 if (v.v >= 0xffff8000LL && v.v <= 0xffffffffLL)
                     v.v = (int32_t)(uint32_t)v.v;
                 min = -32768;
@@ -330,35 +393,42 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
                     (unsigned char)((uint64_t)v.v >> (8 * (r->width - 1 - k)));
         }
     }
-    word(&file, 0x601a);
-    lng(&file, len[0]);
-    lng(&file, len[1]);
-    lng(&file, len[2]);
-    lng(&file, 0);
-    lng(&file, 0);
-    lng(&file, 0);
-    word(&file, 0);
-    for (pos = 0; pos < image.n; pos++)
-        byte(&file, image.p[pos]);
-    if (nrel)
-        qsort(rel, nrel, sizeof *rel, cmp32);
-    if (!nrel)
+    if (rom) {
+        file.p = xmalloc(rom->size);
+        file.n = file.cap = rom->size;
+        memset(file.p, 0xff, file.n);
+        memcpy(file.p, image.p, image.n);
+    } else {
+        word(&file, 0x601a);
+        lng(&file, len[0]);
+        lng(&file, len[1]);
+        lng(&file, len[2]);
         lng(&file, 0);
-    else {
-        lng(&file, rel[0]);
-        prev = rel[0];
-        for (pos = 1; pos < nrel; pos++) {
-            uint32_t delta = rel[pos] - prev;
-            if (!delta)
-                die("duplicate relocation");
-            while (delta > 254) {
-                byte(&file, 1);
-                delta -= 254;
+        lng(&file, 0);
+        lng(&file, 0);
+        word(&file, 0);
+        for (pos = 0; pos < image.n; pos++)
+            byte(&file, image.p[pos]);
+        if (nrel)
+            qsort(rel, nrel, sizeof *rel, cmp32);
+        if (!nrel)
+            lng(&file, 0);
+        else {
+            lng(&file, rel[0]);
+            prev = rel[0];
+            for (pos = 1; pos < nrel; pos++) {
+                uint32_t delta = rel[pos] - prev;
+                if (!delta)
+                    die("duplicate relocation");
+                while (delta > 254) {
+                    byte(&file, 1);
+                    delta -= 254;
+                }
+                byte(&file, delta);
+                prev = rel[pos];
             }
-            byte(&file, delta);
-            prev = rel[pos];
+            byte(&file, 0);
         }
-        byte(&file, 0);
     }
     f = fopen(out, "wb");
     if (!f)
@@ -370,6 +440,13 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
         if (!f)
             die("cannot create map");
         fprintf(f, "TEXT %u DATA %u BSS %u\n", len[0], len[1], len[2]);
+        if (rom) {
+            fprintf(f, "ROM %08x SIZE %u USED %u FILL ff\n", rom->base, rom->size, image.n);
+            fprintf(f, "RAM %08x LIMIT %08x\n", rom->ram_base, rom->ram_limit);
+            for (i = 0; i < l.nbuiltin; i++)
+                fprintf(f, "%08x G %s [ROM linker]\n", (uint32_t)l.builtin[i].value.v,
+                        l.builtin[i].name);
+        }
         for (i = 0; i < n; i++)
             for (j = 0; j < objs[i]->nsym; j++) {
                 Symbol *s = &objs[i]->sym[j];
@@ -379,4 +456,13 @@ void link_tos(Object **objs, int n, const char *out, const char *entry, const ch
             }
         fclose(f);
     }
+}
+void link_tos(Object **objs, int n, const char *out, const char *entry, const char *map)
+{
+    link_image(objs, n, out, entry, map, NULL);
+}
+void link_rom(Object **objs, int n, const char *out, const char *entry, const char *map,
+              const RomOptions *rom)
+{
+    link_image(objs, n, out, entry, map, rom);
 }

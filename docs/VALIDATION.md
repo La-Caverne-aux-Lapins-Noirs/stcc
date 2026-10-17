@@ -1,3 +1,43 @@
+# Validation de la livraison 0.4.0
+
+Vérifications du 17 octobre 2026 sur le mode ROM et le linker partagé TOS/ROM.
+Le fichier livré est un patch de sources applicable à **0.3.1**, avec `patch -p1`.
+
+| Contrôle | Résultat observé |
+|---|---|
+| Construction native C99 et avertissements stricts | réussie |
+| Suite historique du compilateur | 130 contrôles réussis, zéro SKIP, Unicorn M68000 disponible |
+| CLI, modes de fonction, disquettes, construction/installation | suites réussies, dont 28 contrôles FAT12 et 5 contrôles de construction/installation |
+| Exemples TOS | 14 construits, 11 exécutés dans Unicorn ; tous les 14 fichiers sont identiques octet pour octet aux sorties de stcc 0.3.1 |
+| Suite ROM sans émulateur | 27 contrôles réussis, dont une image de référence calculée indépendamment, liaison d'objets STCO, adresses ROM/RAM, tailles et diagnostics |
+| AddressSanitizer + UndefinedBehaviorSanitizer | les 27 contrôles ROM réussissent ; détection des fuites désactivée, arrêt demandé sur erreur UBSan |
+| Paquet Linux | construit, extrait et utilisé pour générer une ROM avec le démarrage et la documentation installés |
+| Démarrages ROM sous Hatari 2.4.1 | 7 réussis sur ST / 68000 à 8 MHz, sans image TOS externe ni patches TOS |
+| Initialisation RAM | arène remplie de `$A5` avant démarrage, copie DATA et effacement BSS vérifiés, données modifiables et pile restaurée après main |
+| Pointeurs et calculs dans la ROM | pointeur vers variable RAM, pointeur vers fonction ROM, multiplication/division/reste 32 bits vérifiés |
+| Configuration mémoire | même profil autonome essayé avec Hatari réglé à 512 Kio puis 1 Mio, en utilisant la première banque de 512 Kio |
+| Vidéo autonome | couleur PAL 320×200 et monochrome 640×400, pixels de début et fin du message vérifiés dans la mémoire écran |
+| Exceptions autonomes | TRAP #3 avec gestionnaire C et retour RTE ; instructions illégales et erreurs de bus vers le gestionnaire d'arrêt |
+
+Les sept essais sont des processus Hatari neufs : le code d'entrée est celui
+de la ROM produite par stcc, pas celui d'Atari ou EmuTOS. Le test ne remplace
+aucun appel système : il empoisonne la RAM, puis observe les registres et la
+mémoire au retour de main ou à l'entrée du gestionnaire d'erreur. L'intégralité
+des octets ROM est relue dans Hatari et comparée au fichier initial.
+
+```sh
+make all test examples rom
+python3 tests/rom_hatari.py --hatari hatari
+```
+
+Ces essais ne valident pas une gravure EPROM ni le démarrage sur une carte ST
+physique. Le profil matériel fourni suppose une première banque d'au moins
+512 Kio ; il ne détecte pas les extensions mémoire. Les rapports et captures
+mémoire de test se régénèrent sous `tests/out/` et sont effacés par `make clean`.
+Les résultats historiques ci-dessous restent datés des versions concernées.
+
+---
+
 # Validation de la livraison 0.3.0
 
 Vérifications du 17 octobre 2026. La modification fonctionnelle de cette version

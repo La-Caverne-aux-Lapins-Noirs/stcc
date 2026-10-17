@@ -12,7 +12,8 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Suggests: python3-unicorn, hatari
 Description: standalone C subset compiler and Devpac assembler for Atari ST
  Linux-hosted compiler with a built-in Motorola 68000 assembler, object format,
- linker and TOS runtime. Generates relocatable Atari ST PRG/TOS/TTP programs.
+ linker and TOS/ROM runtimes. Generates relocatable PRG/TOS/TTP programs or
+ autonomous original-ST ROM images with code in ROM and writable data in RAM.
  This release implements an integer and pointer C89 subset, not full ANSI C89.
  Floating-point arithmetic and by-value aggregate calls are not yet supported.
  Includes stmkdisk to create raw FAT12 floppy images for Hatari and Steem Engine.

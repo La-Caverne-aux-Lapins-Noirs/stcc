@@ -1,4 +1,7 @@
-# Quatorze étapes pédagogiques
+# Quinze étapes pédagogiques
+
+Les quatorze premières étapes fonctionnent sous TOS. Une quinzième étape
+autonome est présentée à la fin de ce document.
 
 Depuis la racine : `make examples`. Les exécutables ont des noms 8.3 dans `bin/`.
 Aucun exemple n'utilise une bibliothèque Atari externe.
@@ -19,10 +22,17 @@ Aucun exemple n'utilise une bibliothèque Atari externe.
 | 12 | `12_interrupts.c` | exceptions imbriquées, retour RTE et restauration du contexte |
 | 13 | `13_naked_chain.c` | chaînage avec une entrée assembleur brute |
 | 14 | `14_vbl.c` | callback de la file VBL TOS avec retour RTS |
+| 15 | `15_rom/main.c` | ROM autonome : accès vidéo direct sans TOS (`make rom`) |
 
 L'étape 8 fonctionne quelle que soit la résolution ST : elle ne touche que
 les 640 premiers octets de l'écran. Le motif est très bref ; augmenter la
 boucle d'attente pour l'observer plus longtemps. Il ne change pas de mode vidéo.
+
+L'étape 15 se construit séparément par `make rom` et donne `bin/15ROM.IMG`
+avec sa carte de symboles. C'est une image ROM pour remplacer le système au
+démarrage, pas un programme à lancer depuis GEM. Elle affiche quatre lignes
+en couleur PAL ou en monochrome, puis conserve l'écran avec le CPU arrêté.
+Voir [ROM.md](../docs/ROM.md) pour la commande Hatari et les hypothèses ST/512 Kio.
 
 Pour inspecter la traduction :
 
