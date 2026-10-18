@@ -1,6 +1,6 @@
 #ifndef STCC_TARGET_H
 #define STCC_TARGET_H
-/* TOS basepage, available before main(void). Offsets are the Atari ABI. */
+/* TOS basepage and argument vector, available before main. Atari ABI offsets. */
 struct stcc_basepage {
     void *lowtpa;
     void *hitpa;
@@ -18,4 +18,6 @@ struct stcc_basepage {
     unsigned char command_line[128];
 };
 extern struct stcc_basepage *stcc_basepage;
+extern int stcc_argc;
+extern char **stcc_argv;
 #endif

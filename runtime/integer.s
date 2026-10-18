@@ -65,9 +65,3 @@ __stcc_sdiv32:
         movem.l (sp)+,d2-d3
         rts
 
-; Linked after every user object: the stack is above all program BSS.
-        section bss
-        xdef __stcc_stack_end
-__stcc_stack:
-        ds.b 16384
-__stcc_stack_end:

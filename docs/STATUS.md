@@ -1,4 +1,4 @@
-# État de stcc 0.4
+# État de stcc 0.6
 
 ## Implémenté
 
@@ -11,6 +11,9 @@
   zéro, initialisations, promotions, lectures/écritures et opérateurs composés.
 - Pointeurs, fonctions, récursion, pointeurs de fonctions et arguments variadiques.
 - Variables globales, locales, `static`, `extern`, `const`, `volatile`, `register`.
+- Placement effectif des scalaires locaux/paramètres `register`, repli mémoire
+  si nécessaire ; `register(d3)` / `register(a3)` imposent un registre non volatil.
+  Sauvegarde aux appels, accès inline et restrictions : voir REGISTERS.md.
 - Affectations et opérateurs composés, incréments, logique court-circuit,
   opérateur conditionnel, virgule, `sizeof`, accès aux membres.
 - `if/else`, `while`, `do`, `for`, `switch/case/default`, `break`, `continue`,
@@ -22,13 +25,18 @@
 - Préprocesseur : includes C, macros objet/fonction, `#`, `##`, `#if/#elif`,
   `defined`, `#ifdef/#ifndef/#else/#endif`, `#undef`, `#error`, `-I`, `-D`.
   Les expressions `#if` emploient les longs cibles et le court-circuit.
+- Macros prédéfinies du compilateur, de la cible ST/68000, de version, des
+  tailles des types et de l'ordre des octets ; voir PORTABILITY.md.
 - En-têtes cibles `limits.h`, `stddef.h`, `stdarg.h`, `stcc.h`.
 - Assembleur 68000 Devpac, objets persistants, symboles locaux/externes,
   fixups, liaison multifichier et relocations TOS.
 - Inline Devpac avec accès aux variables C et préservation des non-volatils.
 - `__interrupt__` : sauvegarde intégrale et retour RTE ; `__naked__` : entrée
   entièrement assembleur sans instructions ajoutées. Voir INTERRUPTS.md.
-- Runtime TOS : basepage, BSS, pile, Mshrink, main(void), Pterm.
+- Runtime TOS : basepage, BSS, pile, Mshrink, main(void) ou main(int, char **),
+  ligne courte et extension ARGV, Pterm ; voir ARGUMENTS.md.
+- Pile de démarrage configurable avec `--stack-size` ou `--stack-top`, en PRG
+  et en ROM ; exemple de changement de pile via un trampoline `__naked__`.
 - Mode ROM : liaison absolue, code en ROM et variables en RAM, copie DATA,
   effacement BSS, pile, vecteurs, démarrage ST 512 Kio autonome ; voir ROM.md.
 - `stmkdisk` : images de disquette FAT12 `.ST` de 360/720/800 Kio, import
@@ -49,11 +57,12 @@
 | Diagnostics | fichier et ligne C conservés par marqueurs ; après continuation de ligne les numéros peuvent être décalés ; erreurs de l'assembleur sur l'émission C indiquées dans l'assembleur généré |
 | Inline | substitution de variables simples ; pas de membre C, sortie anticipée C, ou analyse prouvant les effets arbitraires de l'assembleur |
 | ABI | scalaires/pointeurs seulement pour passage/retour ; pas de garantie binaire avec GCC/Pure C/Lattice |
+| Registres | liaison locale à D2–D7/A2–A5 seulement ; pas de variable globale en registre ni de changement d'ABI ; clobbers des appels assembleur à gérer |
 | Objets | STCO interne seulement ; pas de lecteur DRI/GST/ELF ni d'archives `.a` |
 | Débogage | carte de symboles texte ; pas encore de table de symboles DRI dans le PRG |
-| Démarrage | main(void) seulement ; ligne de commande brute accessible par la basepage |
+| Démarrage | pas de troisième paramètre envp ni de desk accessory ; ARGV historique seulement, sans décodage de l'extension NULL pour arguments vides |
 | ROM | profil ST fixe de 512 Kio sans détection RAM ; pas d'API TOS ni de section C rodata distincte ; validation Hatari seulement |
-| Ressources | pile 16 Kio fixe, cadre local 32760 octets maximum, branches 16 bits sans relaxation |
+| Ressources | pile de 16 Kio par défaut, configurable sans garde de débordement ; cadre local 32760 octets maximum, branches 16 bits sans relaxation |
 | Bibliothèque | aucune libc Atari ; seulement les en-têtes et primitives du compilateur |
 | Assembleur | voir DEVPAC.md pour les directives et extensions manquantes |
 
@@ -72,7 +81,7 @@ Cela ne constitue cependant ni une certification ANSI, ni une preuve exhaustive.
 2. Compléter le préprocesseur et les initialisations C89 sans accolades explicites.
 3. Conserver les flottants logiciels et la virgule fixe comme sujets d'exercices,
    sans en faire une dépendance du compilateur ; les agrégats passent par adresse.
-4. Ajouter argc/argv, relaxation de branches, symboles de débogage et objets historiques.
+4. Ajouter relaxation de branches, symboles de débogage et objets historiques.
 5. Ajouter une IR linéaire lisible pour l'enseignement, puis de petites optimisations.
 
 Les tests sur Hatari/EmuTOS ne remplacent pas une vérification sur un Atari ST

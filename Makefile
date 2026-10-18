@@ -18,6 +18,8 @@ test: all
 	python3 tests/run.py
 	python3 tests/cli.py
 	python3 tests/function_modes.py
+	python3 tests/registers.py
+	python3 tests/arguments.py
 	python3 tests/rom.py
 	python3 tests/mkdisk.py
 	python3 tests/build_system.py
@@ -30,6 +32,7 @@ install: all
 	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(DATADIR)/runtime $(DESTDIR)$(DATADIR)/include $(DESTDIR)$(DATADIR)/docs $(DESTDIR)$(PREFIX)/share/man/man1
 	install -m755 stcc stmkdisk $(DESTDIR)$(PREFIX)/bin/
 	install -m644 runtime/*.s $(DESTDIR)$(DATADIR)/runtime/
+	install -m644 runtime/*.c $(DESTDIR)$(DATADIR)/runtime/
 	install -m644 include/*.h $(DESTDIR)$(DATADIR)/include/
 	install -m644 README.md LICENSE docs/*.md $(DESTDIR)$(DATADIR)/docs/
 	install -m644 docs/stcc.1 $(DESTDIR)$(PREFIX)/share/man/man1/

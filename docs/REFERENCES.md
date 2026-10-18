@@ -1,7 +1,7 @@
 # Références consultées
 
 Spécifications utilisées pour cette implémentation originale, consultées le
-16 et 17 octobre 2026. Aucun code de compilateur, de binutils ni d'assembleur n'a été
+16 au 18 octobre 2026. Aucun code de compilateur, de binutils ni d'assembleur n'a été
 repris. Les moteurs externes servent uniquement à vérifier l'exécution.
 
 - Motorola, *M68000 Family Programmer's Reference Manual*, 1992,
@@ -24,6 +24,12 @@ repris. Les moteurs externes servent uniquement à vérifier l'exécution.
   https://bus-error.nokturnal.pl/atari_compendium/html/chap4.htm
   https://bus-error.nokturnal.pl/atari_compendium/html/appenda.htm
   https://bus-error.nokturnal.pl/atari_compendium/html/appendb.htm
+  Arguments de lancement et extension ARGV : même chapitre GEMDOS ; types
+  et conventions détaillées de Fread/Fwrite, Physbase et Setscreen :
+  https://bus-error.nokturnal.pl/atari_compendium/html/gemdos.htm
+  https://bus-error.nokturnal.pl/atari_compendium/html/xbios.htm
+- Atari, *ST Engineering Hardware Specification*, modes vidéo et plans :
+  https://temlib.org/AtariForumWiki2018/index.php/Engineering_Hardware_Specification
 - Hatari, documentation officielle d'utilisation et du debugger :
   Formats de disquettes et images brutes .ST :
   https://www.hatari-emu.org/doc/manual.html

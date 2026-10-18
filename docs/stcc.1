@@ -1,4 +1,4 @@
-.TH STCC 1 "2026-10-17" "stcc 0.4.0"
+.TH STCC 1 "2026-10-18" "stcc 0.6.0"
 .SH NAME
 stcc \- freestanding C subset and Devpac assembler for Atari ST
 .SH SYNOPSIS
@@ -15,6 +15,24 @@ aggregate arguments/results are unavailable.
 The __interrupt__ function specifier saves all data/address registers and
 returns with RTE. The __naked__ specifier emits only the user assembly body.
 Both require void (void). See INTERRUPTS.md for entry contracts and examples.
+.PP
+The register storage class places scalar locals/parameters in available
+nonvolatile registers, falling back to memory when necessary.
+The stcc extension register(d3) forces a local/parameter into D2-D7 or A2-A5;
+address registers require a pointer or 32-bit integer. C calls preserve these
+registers. The argument ABI remains stack based. SP, A6 and scratch registers
+cannot be bound this way. See REGISTERS.md for inline assembly and stack switching.
+.PP
+TOS startup accepts main(void) or main(int, char **), parses the short basepage
+command tail and supports the historical ARGV environment protocol. The short
+format supplies an empty argv[0]; extended ARGV supplies the program name.
+The ROM startup passes argc=0 and an argv array containing a null sentinel.
+See ARGUMENTS.md for quoting, allocation and failure behavior.
+.PP
+Predefined macros include __ATARI_ST__, __M68000__, __STCC_VERSION__,
+__STCC_VERSION_STRING__, __SIZEOF_INT__, __SIZEOF_LONG__, __SIZEOF_POINTER__
+and __BYTE_ORDER__. They describe the target, not the Linux host.
+See PORTABILITY.md for the full contract and examples.
 .SH OPTIONS
 .TP
 .BI \-o " file"
@@ -37,6 +55,16 @@ Emit an internal STCO v1 object.
 .TP
 .B \-\-nostartfiles
 Omit startup, stack and arithmetic support, also in ROM mode.
+.TP
+.BI \-\-stack\-size " bytes"
+Reserve an even number of stack bytes, from 256 to 16777216 (default 16384).
+Decimal and 0x-prefixed numbers are accepted. Requires automatic startup/linking.
+.TP
+.BI \-\-stack\-top " expression"
+Use a supplied stack top instead of reserving a stack. Mutually exclusive with
+--stack-size. The top must be even and in writable program memory; a PRG requires
+a relocatable address in its DATA/BSS. An absolute RAM address is also allowed
+in ROM mode. The program must reserve enough space below the top.
 .TP
 .B \-\-rom
 Link a raw ROM image instead of a TOS executable. The default startup targets

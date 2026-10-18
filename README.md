@@ -1,11 +1,11 @@
-# stcc 0.4 — C et assembleur Devpac pour Atari ST
+# stcc 0.6 — C et assembleur Devpac pour Atari ST
 
 `stcc` est un compilateur croisé autonome écrit en C99, avec son propre
 préprocesseur, analyseur C, générateur 68000, assembleur, format objet et éditeur
 de liens. Il produit directement des `.TOS`, `.PRG` et `.TTP` relocalisables,
 ou une ROM autonome avec le mode `--rom`.
 Son fonctionnement ne demande ni compilateur croisé, ni binutils Atari, ni libc
-Atari. Le runtime est assemblé par `stcc` lui-même.
+Atari. Le runtime est compilé et assemblé par `stcc` lui-même.
 
 **Cette version couvre un sous-ensemble entier de C89, les champs de bits,
 les appels système et les entrées d'interruption ; elle ne revendique pas ANSI
@@ -13,7 +13,16 @@ C89 complet.** Les flottants logiciels sont laissés aux exercices, avec la
 virgule fixe ; le passage/retour de structures par valeur reste exclu.
 Voir [l'état détaillé](docs/STATUS.md) avant de porter du code.
 
-Nouveauté 0.4 : [liaison ROM et démarrage autonome du ST](docs/ROM.md), avec
+Nouveautés 0.6 : [arguments de `main` pour les TTP](docs/ARGUMENTS.md), y compris
+le protocole Atari ARGV ; [macros de cible et de version](docs/PORTABILITY.md)
+pour partager du code avec d'autres plateformes. Voir aussi les
+[tailles attendues par TOS et la disposition vidéo](docs/TOSCALLS.md).
+
+Ajouts 0.5 : [`register`, registres imposés et choix de pile](docs/REGISTERS.md).
+Les variables locales et paramètres peuvent occuper un registre conservé
+à travers les appels C ; la pile de démarrage devient configurable.
+
+Ajout 0.4 : [liaison ROM et démarrage autonome du ST](docs/ROM.md), avec
 séparation code ROM / données RAM et exemple vidéo sans système préexistant.
 
 Ajout 0.3 : [`stmkdisk`](docs/MKDISK.md), binaire Linux autonome pour créer
@@ -37,7 +46,7 @@ Le compilateur est un exécutable Linux ; `BONJOUR.TOS` est l'exécutable Atari.
 Copier ce dernier sur le disque accessible au ST et le lancer depuis GEM.
 Une extension `.PRG` ne crée pas à elle seule une application graphique GEM :
 il faut écrire les appels AES/VDI nécessaires. `.TTP` utilise le même format,
-mais le runtime actuel appelle seulement `int main(void)`.
+avec une entrée `int main(int argc, char **argv)` ou `int main(void)`.
 
 ```sh
 ./stcc main.c screen.c input.c -o DEMO.PRG
@@ -91,6 +100,55 @@ Le démarrage configure le MMU du ST, les vecteurs, les variables et la pile,
 puis appelle `int main(void)` en superviseur avec les IRQ masquées. Les appels
 TOS ne sont pas fournis. Voir [ROM.md](docs/ROM.md) pour le contrat, les adresses,
 les options de disposition et l'écriture de son propre démarrage.
+
+## Arguments et code commun
+
+```sh
+./stcc examples/18_args.c -o ARGUMENT.TTP
+```
+
+Le démarrage TOS découpe la ligne de commande en arguments et conserve les
+chemins avec antislash. Le format classique fournit `argv[0]` vide, car TOS
+ne transmet pas le nom du programme ; ARGV fournit ce nom et les longues lignes.
+`argv[argc]` vaut toujours zéro. Voir [ARGUMENTS.md](docs/ARGUMENTS.md) pour
+les citations, les limites et l'exemple de lancement parent/enfant avec Pexec.
+
+```c
+#if defined(__ATARI_ST__)
+/* Backend Atari : pointeurs 32 bits et ordre big-endian. */
+#else
+/* Backend du PC ou d'une autre cible. */
+#endif
+```
+
+`__STCC__`, `__STCC_VERSION__`, `__M68000__`, les tailles `__SIZEOF_INT__` etc.
+et `__BYTE_ORDER__` sont prédéfinis. Ils décrivent la cible, pas l'hôte Linux.
+L'exemple `19_portable.c` se compile aussi avec `cc -std=c89` sur le PC.
+
+## Variables en registre et pile
+
+```c
+register int compteur = 0;                 /* placement automatique */
+register(d3) unsigned long ticks = 41UL;     /* D3 imposé */
+register(a3) unsigned short *curseur = ecran; /* A3 imposé */
+__asm__ { addq.l #1,ticks }
+```
+
+L'extension `register(registre)` garantit le stockage dans D2–D7 ou A2–A5
+pendant la portée de la variable locale ou du paramètre. Les arguments restent
+transmis sur la pile et les registres sont préservés à travers les appels C.
+Les calculs intermédiaires, le cadre A6 et SP restent gérés par le compilateur.
+
+```sh
+./stcc --stack-size 32768 main.c -o DEMO.PRG
+./stcc --stack-top '_ma_pile+32768' main.c -o DEMO.PRG
+```
+
+La seconde commande suppose une zone globale `ma_pile` réservant 32 Kio.
+Pour changer de pile pendant l'exécution, l'exemple `17_stack.c` utilise un
+trampoline `__naked__`, appelle une fonction C puis restaure l'ancienne pile.
+Voir [REGISTERS.md](docs/REGISTERS.md) pour les types, l'inline, les limites
+et la distinction entre pile utilisateur et pile superviseur.
 
 ## Premier appel GEMDOS
 
@@ -159,7 +217,9 @@ Voir [ABI et démarrage](docs/ABI.md).
 | `-v`, `--version` | Afficher la version et quitter |
 | `--help` | Afficher l'aide |
 | `--map fichier` | Écrire les adresses finales des symboles |
-| `--nostartfiles` | Omettre démarrage et support arithmétique ; entrée au premier octet TEXT |
+| `--nostartfiles` | Omettre démarrage, pile et support arithmétique ; entrée au premier octet TEXT |
+| `--stack-size N` | Réserver N octets de pile ; défaut 16384, taille paire |
+| `--stack-top expression` | Utiliser le sommet d'une zone fournie par le programme |
 | `--entry symbole` | Vérifier qu'un symbole est au premier octet TEXT |
 | `--rom` | Lier une image ROM brute avec démarrage autonome ST |
 | `--rom-base N`, `--rom-size N` | Adresse ROM et capacité en octets ; défaut `$FC0000`, 196608 |
@@ -169,6 +229,7 @@ Voir [ABI et démarrage](docs/ABI.md).
 Les options inconnues sont rejetées. Avec `-E`, `-S` ou `-c`, `-o` exige une seule
 source. Sans `-o`, la liaison écrit `a.TOS`, ou `a.rom` avec `--rom`.
 `--rom` exige la liaison ; les objets peuvent être produits auparavant avec `-c`.
+Les options de pile nécessitent le démarrage automatique et s'excluent.
 Les modes `-S` et `-c` prennent le
 nom de base de chaque source et écrivent dans le dossier courant.
 
@@ -207,6 +268,8 @@ Les nouveaux tests ROM démarrent les images de stcc sans autre système :
 
 ```sh
 python3 tests/rom_hatari.py --hatari hatari
+python3 tests/registers_hatari.py --hatari hatari --tos /chemin/etos192us.img
+python3 tests/arguments_hatari.py --hatari hatari --tos /chemin/etos192us.img
 ```
 
 Pour la suite TOS, obtenir une ROM EmuTOS auprès de son projet officiel, ou utiliser une ROM TOS
@@ -269,7 +332,7 @@ Placer les images de TOS dans `tos/` avant de construire le paquet :
 
 ```sh
 make deb
-sudo dpkg -i dist/stcc_0.4.0-1_amd64.deb
+sudo dpkg -i dist/stcc_0.6.0-1_amd64.deb
 hatari --tos /usr/share/stcc/tos/etos192us.img --disk-a DEMO.ST
 ```
 
@@ -298,13 +361,14 @@ utilise ces données embarquées et n'a pas besoin du dossier source.
 - `src/object.c` : objets STCO, symboles, fixups, liaisons TOS et ROM.
 - `runtime/` : démarrages TOS/ROM, pile, multiplication et division 32 bits.
 - `include/` : en-têtes cibles `limits.h`, `stddef.h`, `stdarg.h`, `stcc.h`.
-- `examples/` : quatorze étapes progressives ; binaires dans `examples/bin/`.
+- `examples/` : dix-huit programmes TOS ; binaires dans `examples/bin/`.
 - `examples/15_rom/` : démarrage et affichage sans TOS (`make rom`).
 - `tests/` : tests positifs, négatifs, encodages et exécution indépendante.
 
 L'AST typé constitue la représentation intermédiaire de cette version. Il n'y a
-pas encore de passe IR linéaire ni d'allocateur de registres. L'émission repose
-sur `d0`, des temporaires empilés et des variables toujours en mémoire.
+pas encore de passe IR linéaire. L'émission des expressions repose sur `d0` et
+des temporaires empilés ; les variables `register` ont une allocation simple
+par portée, les autres variables restent en mémoire.
 
 Aucun code source de compilateur ou d'assembleur existant n'a été intégré.
 Les outils de référence et les émulateurs servent exclusivement aux tests.

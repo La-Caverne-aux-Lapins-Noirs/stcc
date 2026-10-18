@@ -51,7 +51,11 @@ __stcc_rom_reset:
         bne.w   .clear
         ; The stack has not been used yet, so clearing its BSS is safe.
         move.w  #$2700,sr
+        clr.l   -(sp)                ; argv[0] = NULL, no shell in bare ROM
+        move.l  sp,-(sp)             ; argv points to the sentinel
+        clr.w   -(sp)                ; argc = 0
         jsr     _main                ; supervisor mode, hardware IRQs masked
+        lea     10(sp),sp
 __stcc_rom_halt:
         stop    #$2700               ; main's return value remains in D0
         bra.w   __stcc_rom_halt

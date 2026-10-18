@@ -144,7 +144,7 @@ scratch: ds.b 7
     invalid = OUT/'invalid.s'
     for name, content, args, diagnostic in [
         ('reserved linker definition', '__stcc_data_size equ 7\n        section text\n        rts\n', [],
-         'reserved ROM linker symbol'),
+         'reserved linker symbol'),
         ('undefined reference', '        section text\n        dc.l absent\n', [], 'undefined symbol'),
         ('truncated ROM address', '        section text\nlabel: dc.w label\n', [], 'does not fit'),
         ('short RAM address sign extension',

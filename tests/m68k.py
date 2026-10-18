@@ -20,7 +20,8 @@ def header(path):
     return raw, text, data, bss, syms
 
 
-def run(path, basepage=0x20000, limit=3000000):
+def run(path, basepage=0x20000, limit=3000000, command_tail=b'', environment=None,
+        command_length=None, malloc_failure=False):
     raw, text, data, bss, syms = header(path)
     load = basepage + 0x100
     image = bytearray(raw[28:28+text+data])
@@ -58,12 +59,21 @@ def run(path, basepage=0x20000, limit=3000000):
     for off, val in {0:basepage, 4:0x780000, 8:load, 12:text,
                      16:load+text,20:data,24:load+text+data,28:bss}.items():
         bp[off:off+4] = struct.pack('>I', val)
+    assert len(command_tail) <= 126
+    bp[0x80] = len(command_tail) if command_length is None else command_length
+    bp[0x81:0x81+len(command_tail)] = command_tail
+    if environment is not None:
+        assert environment.endswith(b'\0\0') and len(environment) < 65536
+        u.mem_write(0x10000, environment)
+        bp[0x2c:0x30] = struct.pack('>I', 0x10000)
     u.mem_write(basepage, bytes(bp))
     stack=0x77fff0
     u.mem_write(stack, struct.pack('>II',0,basepage))
     u.reg_write(UC_M68K_REG_SR,0)
     u.reg_write(UC_M68K_REG_A7,stack)
-    state={'exit':None,'stdout':'','shrink':False,'files':{},'instructions':0,'relocs':relocs}
+    state={'exit':None,'stdout':'','shrink':False,'files':{},'instructions':0,
+           'relocs':relocs,'malloc':[]}
+    heap = [0x100000]
     handles={}
     def r16(at): return struct.unpack('>H',u.mem_read(at,2))[0]
     def r32(at): return struct.unpack('>I',u.mem_read(at,4))[0]
@@ -94,6 +104,12 @@ def run(path, basepage=0x20000, limit=3000000):
                 state['stdout']+=chr(r16(sp+2)&255)
             elif op==1:
                 result=65
+            elif op==0x48:
+                count=r32(sp+2);state['malloc'].append(count)
+                assert state['shrink'], 'argument allocation precedes Mshrink'
+                assert count and heap[0]+count<0x700000
+                result=0xffffffff if malloc_failure else heap[0]
+                if not malloc_failure:heap[0]=(heap[0]+count+1)&~1
             elif op==0x3c:
                 name=cstring(r32(sp+2));handle=len(handles)+6
                 handles[handle]=name;state['files'][name]=b'';result=handle

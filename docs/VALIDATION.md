@@ -1,3 +1,90 @@
+# Validation de la livraison 0.6.0
+
+Vérifications du 18 octobre 2026. Le patch s'applique aux sources de **0.5.0**.
+Cette livraison ajoute les arguments de démarrage et les macros de cible.
+
+| Contrôle | Résultat observé |
+|---|---|
+| Construction native C99 et avertissements stricts | réussie |
+| Suite historique | 130 contrôles réussis, zéro SKIP avec Unicorn M68000 |
+| Arguments et macros | 29 contrôles réussis ; 19 programmes de parsing exécutés à deux adresses, plus les contrôles des macros et de l'échec d'allocation |
+| Ligne courte | séparateurs, guillemets simples/doubles, arguments vides, citations doublées, antislashs, fin CR/NUL, 126 caractères et argc maximal court |
+| ARGV | marqueur 127 exigé, valeur ignorée, nom de programme, chaîne de 300 caractères, 71 arguments et réservation du tableau après Mshrink |
+| Erreur de mémoire | échec Malloc simulé : terminaison 127 avant main, sans troncature |
+| Source commune | exemple 19 compilé avec stcc et avec cc en C89, retour 42 sur les deux |
+| Autres suites | CLI, modes de fonction, 41 contrôles registres/pile, 27 ROM, 28 FAT12 et 5 construction/installation réussis |
+| Exemples | 18 programmes TOS construits ; 15 exécutés dans Unicorn ; ROM construite séparément |
+| ASan + UBSan | les 28 contrôles de compilation/diagnostic arguments/macros passent avec le compilateur instrumenté ; fuite désactivée, arrêt sur erreur UBSan ; pas d'exécution CPU dans cette passe |
+| Paquet amd64 | construit et extrait ; supports C/assembleur et guides installés ; génération TOS/ROM et disquette vérifiée avec le binaire extrait |
+| Hatari 2.4.1 / EmuTOS 1.4 US 192 Kio | 54 programmes historiques et 17 exemples exécutés, clavier bloquant écarté |
+| Véritable lancement parent/enfant | 4 essais Pexec : ligne vide, citations/chemins, ARGV long et tableau alloué ; résultat de l'enfant et retour au parent vérifiés |
+| ROM autonome | 8 démarrages ST/68000 réussis, dont main(int, char **) avec argc=0 et argv[0]=0, sans TOS externe |
+| Régression registres/pile sous Hatari | 6 ROM et 4 PRG réussis, dont changement temporaire de pile et interruption avec appel C |
+
+Les tests Pexec utilisent un parent compilé avec stcc qui transmet lui-même
+les blocs de commande et d'environnement à GEMDOS. Le debugger attend la
+terminaison du parent après celle de l'enfant, et un message confirme le retour
+de Pexec. Il ne modifie pas les arguments de l'enfant en mémoire.
+
+Les tests CPU restent un chargeur et des doublures d'appels système ; leur
+contrôle Malloc n'est pas un gestionnaire mémoire TOS complet. La passe Hatari
+exécute le vrai GEMDOS d'EmuTOS. Aucune mesure de performances ni validation
+sur Atari physique ou TOS propriétaire n'est revendiquée.
+
+```sh
+make all test examples rom
+python3 tests/arguments_hatari.py --hatari hatari --tos /chemin/etos192us.img
+python3 tests/hatari.py --hatari hatari --tos /chemin/etos192us.img --examples
+python3 tests/rom_hatari.py --hatari hatari
+python3 tests/registers_hatari.py --hatari hatari --tos /chemin/etos192us.img
+```
+
+Les rapports et journaux se régénèrent dans `tests/out/` et restent des
+artefacts effaçables par `make clean`. Les résultats précédents restent datés
+ci-dessous.
+
+---
+
+# Validation de la livraison 0.5.0
+
+Vérifications du 18 octobre 2026. Le patch s'applique aux sources de **0.4.0**.
+Cette version ajoute le stockage en registre et le choix de pile ; les
+résultats des livraisons précédentes sont conservés plus bas avec leur date.
+
+| Contrôle | Résultat observé |
+|---|---|
+| Construction native C99 et avertissements stricts | réussie |
+| Suite historique du compilateur | 130 contrôles réussis, zéro SKIP, Unicorn M68000 disponible |
+| Registres et pile | 41 contrôles réussis ; 21 programmes positifs exécutés chacun à deux adresses de chargement dans Unicorn |
+| Registres | types 8/16/32 bits, conversions, opérateurs composés, pointeurs, paramètres, récursion, dix registres à travers un appel, scopes et pression de registres |
+| Inline | variable automatique protégée, opérande C en registre modifiable, nom matériel d'un registre imposé modifiable |
+| Pile PRG | défaut 16 Kio, réserve 32 Kio, cadre local de 20 Kio, pile fournie et conservation des variables placées après son sommet par Mshrink |
+| Autres régressions | CLI et modes de fonction réussis ; 27 contrôles ROM, 28 contrôles FAT12 et 5 contrôles de construction/installation réussis |
+| Exemples | 16 programmes TOS construits, dont 13 exécutés dans Unicorn ; exemple ROM construit séparément |
+| AddressSanitizer + UndefinedBehaviorSanitizer | les 41 contrôles registres/pile passent avec le compilateur instrumenté ; fuite désactivée, arrêt sur erreur UBSan ; exécution CPU écartée de cette passe |
+| Paquet Linux amd64 | construit et extrait ; compilation avec les supports installés, nouvelle pile et guide inclus, génération TOS/ROM et disquette vérifiées |
+| Hatari 2.4.1, ST / 68000 à 8 MHz | 6 nouvelles exécutions ROM sans TOS externe, plus 4 PRG sous EmuTOS 1.4 US 192 Kio |
+| Nouvelle passe Hatari | variables imposées, changement temporaire de pile, grande pile, pile fournie, sommet ROM fixe et gestionnaire TRAP/RTE avec appel C imbriqué |
+| Régressions Hatari ROM | les 7 démarrages historiques passent à nouveau : initialisation, vidéo, interruption et exceptions |
+
+La fonction appelée sur une pile secondaire dispose d'un tableau local de
+20 Kio, sur une réserve de 32 Kio, puis le trampoline retrouve SP et retourne
+à son appelant. Le contrôle de pile fournie vérifie aussi une variable située
+après le sommet choisi ; la fin de mémoire conservée reste indépendante de SP.
+Ces essais ne mesurent pas les performances et ne valident pas un ST physique.
+
+```sh
+make all test examples rom
+python3 tests/registers_hatari.py --hatari hatari --tos /chemin/etos192us.img
+python3 tests/rom_hatari.py --hatari hatari
+```
+
+Les sorties et rapports sont régénérés dans `tests/out/`. Les outils externes
+restent des dépendances facultatives de validation, sans code ni binaire ajouté
+au projet. Voir REGISTERS.md pour les limites du contrat de stockage.
+
+---
+
 # Validation de la livraison 0.4.0
 
 Vérifications du 17 octobre 2026 sur le mode ROM et le linker partagé TOS/ROM.

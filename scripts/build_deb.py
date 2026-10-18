@@ -21,7 +21,7 @@ def main():
         depends=deps.strip().removeprefix('shlibs:Depends=')
         assert depends and '${' not in depends
         (control/'control').write_text(f'''Package: stcc
-Version: 0.4.0-1
+Version: 0.6.0-1
 Section: devel
 Priority: optional
 Architecture: {arch}
@@ -40,23 +40,35 @@ Description: standalone C subset compiler and Devpac assembler for Atari ST
             man.with_suffix('.1.gz').write_bytes(gzip.compress(man.read_bytes(),mtime=0))
             man.unlink()
         out=root/'dist';out.mkdir(exist_ok=True)
-        package=out/f'stcc_0.4.0-1_{arch}.deb'
+        package=out/f'stcc_0.6.0-1_{arch}.deb'
         run('dpkg-deb','--root-owner-group','--build',stage,package)
         # Inspect the archive and test its extracted executable with support data.
         extracted=stage/'verification'
         run('dpkg-deb','-x',package,extracted)
         env=dict(os.environ,STCC_DATA=str(extracted/'usr/share/stcc'))
-        for example in ('01_minimal.c','11_bits.c','12_interrupts.c','14_vbl.c'):
+        for example in ('01_minimal.c','11_bits.c','12_interrupts.c','14_vbl.c',
+                        '16_registers.c','17_stack.c','18_args.c','19_portable.c'):
             run(extracted/'usr/bin/stcc',root/'examples'/example,
                 '-o',stage/'verify.TOS',env=env)
             assert (stage/'verify.TOS').read_bytes()[:2]==b'\x60\x1a'
+        run(extracted/'usr/bin/stcc',root/'examples/17_stack.c',
+            '-o',stage/'verify.TOS',env=env)
+        default_bss=int.from_bytes((stage/'verify.TOS').read_bytes()[10:14],'big')
+        run(extracted/'usr/bin/stcc','--stack-size','32768',root/'examples/17_stack.c',
+            '-o',stage/'verify.TOS',env=env)
+        assert int.from_bytes((stage/'verify.TOS').read_bytes()[10:14],'big')==default_bss+16384
         run(extracted/'usr/bin/stcc','--rom',root/'examples/15_rom/main.c',
             '-o',stage/'verify.rom',env=env)
         rom=(stage/'verify.rom').read_bytes()
         assert len(rom)==196608 and rom[:4]==b'\x60\x2e\x01\x00'
         assert rom[44:48]==b'STCC'
         assert (extracted/'usr/share/stcc/runtime/rom_start.s').exists()
+        assert (extracted/'usr/share/stcc/runtime/stack.s').exists()
+        assert (extracted/'usr/share/stcc/runtime/args.c').exists()
         assert (extracted/'usr/share/stcc/docs/ROM.md').exists()
+        assert (extracted/'usr/share/stcc/docs/REGISTERS.md').exists()
+        assert (extracted/'usr/share/stcc/docs/ARGUMENTS.md').exists()
+        assert (extracted/'usr/share/stcc/docs/PORTABILITY.md').exists()
         assert (extracted/'usr/share/man/man1/stcc.1.gz').exists()
         assert (extracted/'usr/share/man/man1/stmkdisk.1.gz').exists()
         run(extracted/'usr/bin/stmkdisk','-o',stage/'verify.st','--auto',stage/'verify.TOS',env=env)

@@ -34,7 +34,9 @@ Pour son propre programme :
 ./stcc --rom noyau.c pilotes.c routines.s -o NOYAU.IMG --map NOYAU.map
 ```
 
-La forme du point d'entrée C est `int main(void)`. Les fonctions C ordinaires
+Les formes du point d'entrée C sont `int main(void)` et `int main(int, char **)`.
+La seconde reçoit `argc == 0` et un tableau `argv` contenant son pointeur nul
+final, sans shell préexistant. Les fonctions C ordinaires
 conservent l'ABI habituelle de stcc ; l'assembleur inline Devpac reste utilisable.
 
 ## Ce que prépare le démarrage
@@ -53,7 +55,8 @@ gestionnaire d'arrêt sûr qui ne suppose aucune taille de cadre d'exception.
 Il copie ensuite les octets DATA depuis la ROM vers leurs adresses finales
 en RAM et efface BSS, pile comprise. Aucun appel n'utilise cette pile avant
 la fin de l'effacement. Les primitives entières 32 bits de `runtime/integer.s`
-sont liées comme pour un programme TOS, avec une pile de 16 Kio.
+sont liées comme pour un programme TOS. La pile de 16 Kio est configurable
+avec `--stack-size` ou remplaçable par `--stack-top` ; voir REGISTERS.md.
 
 `main` est appelé en **mode superviseur, SR = $2700**, avec les IRQ masquées.
 Il lui appartient d'initialiser ses périphériques et d'installer leurs
@@ -79,7 +82,7 @@ ne commande pas le lecteur de disquette.
 | TEXT | en-tête, démarrage, code utilisateur, primitives entières, dans la ROM |
 | Image DATA | immédiatement après TEXT dans le fichier ROM |
 | DATA en RAM | à partir de `$1000`, avec les pointeurs déjà liés à leurs adresses finales |
-| BSS en RAM | après DATA, pile de 16 Kio incluse à la fin |
+| BSS en RAM | après DATA, pile de 16 Kio incluse à la fin par défaut |
 | Limite de l'arène DATA/BSS | `$78000`, exclusive |
 | Écran réservé | `$78000..$7FCFF`, 32 000 octets |
 | Octets ROM inutilisés | remplissage `$FF` jusqu'à la taille demandée |
@@ -115,7 +118,7 @@ On peut déplacer le début DATA/BSS dans cette arène. Une autre configuration
 demande son propre module d'entrée :
 
 ```sh
-./stcc --rom --nostartfiles entree.s noyau.c runtime/integer.s \
+./stcc --rom --nostartfiles entree.s noyau.c runtime/integer.s runtime/stack.s \
     --rom-base 0xfc0000 --rom-size 196608 \
     --ram-base 0x2000 --ram-limit 0x78000 \
     --entry debut_rom -o NOYAU.IMG --map NOYAU.map
@@ -123,7 +126,7 @@ demande son propre module d'entrée :
 
 Avec `--nostartfiles`, aucun en-tête ni code de démarrage n'est ajouté, et le
 support entier/pile est omis également. L'exemple de commande le réintroduit
-explicitement par `runtime/integer.s`. `entree.s` doit fournir son en-tête et
+explicitement par `runtime/integer.s` et `runtime/stack.s`. `entree.s` doit fournir son en-tête et
 ses vecteurs de reset, initialiser le matériel, copier DATA et effacer BSS.
 `--entry` vérifie seulement la position du symbole au premier octet TEXT ;
 il ne construit pas un vecteur de reset à sa place.
@@ -153,6 +156,7 @@ absolues finales ; les tailles sont des constantes numériques.
 | `__stcc_bss_end` | fin exclusive de BSS en RAM |
 | `__stcc_bss_size` | taille de BSS, alignements compris |
 | `__stcc_ram_limit` | limite exclusive de l'arène RAM |
+| `__stcc_program_end` | fin exclusive de DATA/BSS, également disponible en liaison PRG |
 
 En assembleur, employer `lea symbole,a0` ou `move.l #symbole,d0` pour récupérer
 une adresse ; `move.l symbole,d0` lirait la mémoire qui s'y trouve. Depuis C,

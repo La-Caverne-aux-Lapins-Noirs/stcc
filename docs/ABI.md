@@ -54,6 +54,10 @@ que `d0.w` ; une routine retournant un `long` ou un pointeur définit tout `d0`.
 
 L'appelant nettoie les arguments. Le retour est `UNLK a6` puis `RTS`.
 `d0/d1/a0/a1` et CCR sont volatils. `d2-d7/a2-a6` doivent être préservés.
+Les variables `register` peuvent occuper D2-D7/A2-A5. Une fonction ordinaire
+sauvegarde les registres utilisés après son LINK et les restaure avant UNLK ;
+les offsets des paramètres par rapport à A6 restent identiques. Les paramètres
+`register` arrivent sur la pile comme les autres, puis sont copiés. Voir REGISTERS.md.
 Les routines arithmétiques internes emploient une ABI de registres privée,
 décrite dans `runtime/integer.s`, et préservent les registres non volatils.
 
@@ -75,8 +79,8 @@ les callbacks TOS et le chaînage.
 
 La liaison place successivement tous les TEXT, tous les DATA puis tous les
 BSS, en alignant chaque contribution sur deux octets. Le premier objet est
-le démarrage. Le dernier objet runtime réserve **16 Kio de pile au-dessus de
-tous les BSS utilisateur**.
+le démarrage. Par défaut, le dernier objet réserve **16 Kio de pile au-dessus
+de tous les BSS utilisateur** ; `--stack-size` et `--stack-top` changent ce choix.
 
 TOS entre au premier octet de TEXT avec la basepage à `4(sp)`.
 `runtime/start.s` :
@@ -84,14 +88,17 @@ TOS entre au premier octet de TEXT avec la basepage à `4(sp)`.
 1. récupère cette adresse et efface explicitement tout le BSS ;
 2. la conserve dans `__stcc_basepage`, également exportée sous `_stcc_basepage` ;
 3. place `sp` en haut de la pile réservée ;
-4. appelle GEMDOS `Mshrink` avec la taille réellement nécessaire ;
-5. appelle `_main`, sans argument ;
-6. transmet `d0.w` à GEMDOS `Pterm` (`$4c`).
+4. appelle GEMDOS `Mshrink` avec la fin complète du programme (`__stcc_program_end`),
+   indépendamment du sommet de pile choisi ;
+5. appelle le support C `runtime/args.c` pour préparer les arguments ;
+6. empile `argv` puis `argc` et appelle `_main` ;
+7. nettoie ces six octets et transmet `d0.w` à GEMDOS `Pterm` (`$4c`).
 
 L'en-tête `<stcc.h>` expose `stcc_basepage` en C. Il donne accès aux dimensions
 des segments, à l'environnement et à la ligne de commande brute de TOS.
-Il n'y a pas encore de conversion en `argc/argv`, de gestion de `ARGV`,
-de vérification de débordement de pile ni de support des desk accessories.
+Les deux formes `main(void)` et `main(int, char **)` sont disponibles. Le support
+gère la ligne courte et l'extension ARGV ; voir ARGUMENTS.md. Il n'y a pas de
+vérification de débordement de pile ni de support des desk accessories.
 
 L'en-tête TOS fait 28 octets, commence par `$601a`, indique les trois tailles,
 une table de symboles de taille zéro et des flags zéro. `ABSFLAG` vaut zéro.
@@ -102,9 +109,11 @@ références PC-relatives ne demandent pas de relocation du chargeur.
 ## Démarrage ROM
 
 `--rom` conserve l'ABI C, mais utilise `runtime/rom_start.s` et une liaison
-absolue avec DATA/BSS en RAM. Le démarrage fourni appelle `int main(void)`
-en superviseur, IRQ masquées, sans basepage ni services TOS. Il installe des
-vecteurs d'arrêt, copie DATA, efface BSS et réserve la pile de 16 Kio.
+absolue avec DATA/BSS en RAM. Le démarrage fourni appelle `main` avec `argc=0`
+et `argv[0]=0` ; `main(void)` reste utilisable. Il s'exécute en superviseur,
+IRQ masquées, sans basepage ni services TOS. Il installe des
+vecteurs d'arrêt, copie DATA, efface BSS et utilise la pile de 16 Kio par défaut,
+configurable par `--stack-size` ou `--stack-top`.
 Le retour de `main` provoque un `STOP` avec son résultat dans D0.
 Voir [ROM.md](ROM.md) pour le profil matériel et le remplacement du démarrage.
 

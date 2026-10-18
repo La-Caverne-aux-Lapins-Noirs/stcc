@@ -154,6 +154,8 @@ def main():
 
     ram, syms, _ = run('interrupt', IRQ)
     assert struct.unpack_from('>H', ram, syms['_hits'])[0] == 1
+    run('arguments', 'int main(int argc,char **argv) { '
+        'return argc==0 && argv!=0 && argv[0]==0 ? 42:1; }\n')
     run('illegal-instruction', 'int main(void) { __asm__ { illegal } return 42; }\n', fault=True)
     run('bus-error', 'int main(void) { __asm__ { move.l #1,$00000000 } return 42; }\n', fault=True)
     (OUT/'report.json').write_text(json.dumps({'machine': 'ST', 'cpu': '68000 @ 8 MHz',

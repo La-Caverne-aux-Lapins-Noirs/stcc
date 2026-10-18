@@ -39,12 +39,14 @@ struct Type {
     int bit_width, func_flags;
     Type *base, **params, *identity;
     char **pnames;
+    int *pstorage, *pregs;
     Member *members;
 };
 struct Var {
     char *name, *label;
     Type *type;
     int offset, storage, defined, is_enum;
+    int reg, fixed_reg;
     uint32_t val;
     int depth;
     Var *next, *allnext;
@@ -89,6 +91,7 @@ struct Node {
     uint32_t val;
     Var *var;
     int offset, id, post, bit_shift;
+    unsigned regmask;
     Node *lhs, *rhs, *cond, *init, *inc, *body, *els, *next, *cases, *casenext;
     Node **args;
     int nargs;
@@ -97,6 +100,7 @@ typedef struct Function {
     Var *var;
     Var **params;
     int nparams, frame;
+    unsigned regmask;
     Node *body;
     struct Function *next;
 } Function;
@@ -120,4 +124,5 @@ int aggregate(Type *);
 Type *decay(Type *);
 uint32_t convert_const(uint32_t, Type *);
 char *generate(Program *);
+const char *c_register_name(int);
 #endif

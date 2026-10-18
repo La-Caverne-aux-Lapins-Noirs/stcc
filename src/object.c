@@ -198,7 +198,7 @@ typedef struct {
     struct {
         const char *name;
         Value value;
-    } builtin[12];
+    } builtin[13];
 } Link;
 static void builtin(Link *l, const char *name, uint32_t value, int address)
 {
@@ -206,7 +206,7 @@ static void builtin(Link *l, const char *name, uint32_t value, int address)
     for (i = 0; i < l->n; i++) {
         Symbol *s = symbol(l->objs[i], name, 0);
         if (s && s->sec != -1)
-            die("reserved ROM linker symbol '%s'", name);
+            die("reserved linker symbol '%s'", name);
     }
     l->builtin[l->nbuiltin].name = name;
     l->builtin[l->nbuiltin].value.v = value;
@@ -256,7 +256,7 @@ static int cmp32(const void *a, const void *b)
     return (x > y) - (x < y);
 }
 static void link_image(Object **objs, int n, const char *out, const char *entry, const char *map,
-                       const RomOptions *rom)
+                       const RomOptions *rom, int check_stack)
 {
     uint32_t len[3] = {0, 0, 0}, total = 0, *rel = NULL, nrel = 0, crel = 0, pos = 0, prev;
     uint32_t address[3] = {0, 0, 0}, file_offset[2];
@@ -316,6 +316,15 @@ static void link_image(Object **objs, int n, const char *out, const char *entry,
         builtin(&l, "__stcc_bss_end", address[2] + len[2], 1);
         builtin(&l, "__stcc_bss_size", len[2], 0);
         builtin(&l, "__stcc_ram_limit", rom->ram_limit, 1);
+    }
+    builtin(&l, "__stcc_program_end", address[2] + len[2], 1);
+    if (check_stack) {
+        l.cur = objs[0];
+        v = lookup(&l, "__stcc_stack_end");
+        if ((v.v & 1) || v.v < (int64_t)address[1] + 2 ||
+            v.v > (rom ? rom->ram_limit : address[2] + len[2]) || (!rom && v.base != 1))
+            die("startup stack top must be even and within writable program memory "
+                "(a PRG stack must relocate with the program)");
     }
     for (i = 0; i < n; i++)
         for (j = 0; j < objs[i]->nsym; j++) {
@@ -443,26 +452,31 @@ static void link_image(Object **objs, int n, const char *out, const char *entry,
         if (rom) {
             fprintf(f, "ROM %08x SIZE %u USED %u FILL ff\n", rom->base, rom->size, image.n);
             fprintf(f, "RAM %08x LIMIT %08x\n", rom->ram_base, rom->ram_limit);
-            for (i = 0; i < l.nbuiltin; i++)
-                fprintf(f, "%08x G %s [ROM linker]\n", (uint32_t)l.builtin[i].value.v,
-                        l.builtin[i].name);
         }
+        for (i = 0; i < l.nbuiltin; i++)
+            fprintf(f, "%08x G %s [linker]\n", (uint32_t)l.builtin[i].value.v, l.builtin[i].name);
         for (i = 0; i < n; i++)
             for (j = 0; j < objs[i]->nsym; j++) {
                 Symbol *s = &objs[i]->sym[j];
                 if (s->sec >= 0)
                     fprintf(f, "%08x %c %s [%s]\n", objs[i]->start[s->sec] + s->off,
                             s->global ? 'G' : 'L', s->name, objs[i]->name);
+                else if (s->sec == -2 && s->global) {
+                    l.cur = objs[i];
+                    v = lookup(&l, s->name);
+                    fprintf(f, "%08x G %s [%s]\n", (uint32_t)v.v, s->name, objs[i]->name);
+                }
             }
         fclose(f);
     }
 }
-void link_tos(Object **objs, int n, const char *out, const char *entry, const char *map)
+void link_tos(Object **objs, int n, const char *out, const char *entry, const char *map,
+              int check_stack)
 {
-    link_image(objs, n, out, entry, map, NULL);
+    link_image(objs, n, out, entry, map, NULL, check_stack);
 }
 void link_rom(Object **objs, int n, const char *out, const char *entry, const char *map,
-              const RomOptions *rom)
+              const RomOptions *rom, int check_stack)
 {
-    link_image(objs, n, out, entry, map, rom);
+    link_image(objs, n, out, entry, map, rom, check_stack);
 }

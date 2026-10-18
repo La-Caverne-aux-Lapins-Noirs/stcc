@@ -619,6 +619,21 @@ char *preprocess(const char *file, char **incs, int ninc, char **defs, int ndefs
     def(&p, xstrdup("__STDC__ 1"));
     def(&p, xstrdup("__STDC_HOSTED__ 0"));
     def(&p, xstrdup("__M68000__ 1"));
+    def(&p, xstrdup("__ATARI_ST__ 1"));
+    def(&p, fmt("__STCC_VERSION__ %ldL",
+                VERSION_MAJOR * 10000L + VERSION_MINOR * 100L + VERSION_PATCH));
+    def(&p, fmt("__STCC_VERSION_MAJOR__ %d", VERSION_MAJOR));
+    def(&p, fmt("__STCC_VERSION_MINOR__ %d", VERSION_MINOR));
+    def(&p, fmt("__STCC_VERSION_PATCH__ %d", VERSION_PATCH));
+    def(&p, fmt("__STCC_VERSION_STRING__ \"%s\"", VERSION));
+    def(&p, xstrdup("__CHAR_BIT__ 8"));
+    def(&p, xstrdup("__SIZEOF_SHORT__ 2"));
+    def(&p, xstrdup("__SIZEOF_INT__ 2"));
+    def(&p, xstrdup("__SIZEOF_LONG__ 4"));
+    def(&p, xstrdup("__SIZEOF_POINTER__ 4"));
+    def(&p, xstrdup("__ORDER_LITTLE_ENDIAN__ 1234"));
+    def(&p, xstrdup("__ORDER_BIG_ENDIAN__ 4321"));
+    def(&p, xstrdup("__BYTE_ORDER__ __ORDER_BIG_ENDIAN__"));
     for (i = 0; i < ndefs; i++) {
         char *s = xstrdup(defs[i]), *q = strchr(s, '=');
         if (q)

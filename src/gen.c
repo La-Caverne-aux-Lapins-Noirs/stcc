@@ -7,6 +7,26 @@ static int serial, return_label, break_label, continue_label, function_flags;
 #define EMIT(...) printf_s(&output, __VA_ARGS__)
 static void expr(Node *);
 static void stmt(Node *);
+static void movem(unsigned mask, int save)
+{
+    Str registers = {0};
+    int i;
+    if (!mask)
+        return;
+    if (mask == 0x3cfcu)
+        puts_s(&registers, "d2-d7/a2-a5");
+    else
+        for (i = 1; i <= 16; i++)
+            if (mask & (1u << (i - 1))) {
+                if (registers.n)
+                    putc_s(&registers, '/');
+                puts_s(&registers, c_register_name(i));
+            }
+    if (save)
+        EMIT("        movem.l %s,-(sp)\n", registers.s);
+    else
+        EMIT("        movem.l (sp)+,%s\n", registers.s);
+}
 static void shift_const(const char *op, int count)
 {
     while (count > 0) {
@@ -57,6 +77,8 @@ static void address(Node *n)
 {
     switch (n->kind) {
     case ND_VAR:
+        if (n->var->reg)
+            at(n->tok, "register variable has no address");
         if (n->var->label)
             EMIT("        move.l #%s,d0\n", n->var->label);
         else
@@ -169,6 +191,11 @@ static void expr(Node *n)
         normalize(n->type);
         return;
     case ND_VAR:
+        if (n->var->reg) {
+            EMIT("        move.l %s,d0\n", c_register_name(n->var->reg));
+            normalize(n->type);
+            return;
+        }
         address(n);
         load(n->type, n->bit_shift);
         return;
@@ -236,6 +263,20 @@ static void expr(Node *n)
         label(b);
         return;
     case ND_ASSIGN:
+        if (n->lhs->kind == ND_VAR && n->lhs->var->reg) {
+            if (n->text) {
+                expr(n->lhs);
+                normalize(n->init->lhs->type);
+                EMIT("        move.l d0,-(sp)\n");
+                expr(n->init->rhs);
+                EMIT("        move.l d0,d1\n        move.l (sp)+,d0\n");
+                binary_value(n->init);
+            } else
+                expr(n->rhs);
+            normalize(n->type);
+            EMIT("        move.l d0,%s\n", c_register_name(n->lhs->var->reg));
+            return;
+        }
         address(n->lhs);
         EMIT("        move.l d0,-(sp)\n");
         if (n->text) {
@@ -255,6 +296,18 @@ static void expr(Node *n)
         t = decay(n->type);
         if (t->kind == TY_PTR && t->base->size <= 0)
             at(n->tok, "increment on incomplete/function pointer");
+        if (n->lhs->kind == ND_VAR && n->lhs->var->reg) {
+            expr(n->lhs);
+            if (n->post)
+                EMIT("        move.l d0,-(sp)\n");
+            EMIT("        %si.l #%d,d0\n", !strcmp(n->op, "++") ? "add" : "sub",
+                 t->kind == TY_PTR ? t->base->size : 1);
+            normalize(n->type);
+            EMIT("        move.l d0,%s\n", c_register_name(n->lhs->var->reg));
+            if (n->post)
+                EMIT("        move.l (sp)+,d0\n");
+            return;
+        }
         address(n->lhs);
         EMIT("        move.l d0,-(sp)\n");
         load(n->type, n->lhs->bit_shift);
@@ -410,9 +463,11 @@ static void stmt(Node *n)
     case ND_ASM:
         if (function_flags & FN_NAKED)
             EMIT("%s", n->text);
-        else
-            EMIT("        movem.l d2-d7/a2-a5,-(sp)\n%s        movem.l (sp)+,d2-d7/a2-a5\n",
-                 n->text);
+        else {
+            movem(0x3cfcu & ~n->regmask, 1);
+            EMIT("%s", n->text);
+            movem(0x3cfcu & ~n->regmask, 0);
+        }
         return;
     case ND_ZERO:
         a = serial++;
@@ -447,9 +502,25 @@ char *generate(Program *program)
         if (function_flags & FN_INTERRUPT)
             EMIT("        movem.l d0-d7/a0-a6,-(sp)\n");
         EMIT("        link a6,#-%d\n", f->frame);
+        if (!(function_flags & FN_INTERRUPT))
+            movem(f->regmask, 1);
+        {
+            int i;
+            for (i = 0; i < f->nparams; i++) {
+                Var *parameter = f->params[i];
+                if (parameter->reg) {
+                    EMIT("        move.%c %d(a6),d0\n", size_suffix(parameter->type),
+                         parameter->offset);
+                    normalize(parameter->type);
+                    EMIT("        move.l d0,%s\n", c_register_name(parameter->reg));
+                }
+            }
+        }
         stmt(f->body);
         EMIT("        moveq #0,d0\n");
         label(return_label);
+        if (!(function_flags & FN_INTERRUPT))
+            movem(f->regmask, 0);
         EMIT("        unlk a6\n");
         if (function_flags & FN_INTERRUPT)
             EMIT("        movem.l (sp)+,d0-d7/a0-a6\n        rte\n");

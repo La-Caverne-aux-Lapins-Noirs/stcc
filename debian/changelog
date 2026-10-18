@@ -1,3 +1,24 @@
+stcc (0.6.0-1) unstable; urgency=low
+
+  * Add main(int, char **) startup arguments from the TOS basepage.
+  * Support the historical ARGV environment protocol and long argument vectors.
+  * Preserve short raw command tails; document quoting and unavailable argv[0].
+  * Define target, version, integer-width and byte-order preprocessor macros.
+  * Add native/target common-source example and real GEMDOS Pexec tests.
+  * Install the C argument runtime and document TOS call types and screen layout.
+
+ -- EFRITS <contact@efrits.fr>  Sun, 18 Oct 2026 20:00:00 +0000
+
+stcc (0.5.0-1) unstable; urgency=low
+
+  * Allocate register locals/parameters and add explicit register(d3) bindings.
+  * Preserve bound variables across C calls, recursion and interrupt handlers.
+  * Expose register operands to inline assembly and diagnose invalid bindings.
+  * Add --stack-size/--stack-top for PRG and ROM, with independent Mshrink bounds.
+  * Split stack reservation from integer support; add examples and CPU/Hatari tests.
+
+ -- EFRITS <contact@efrits.fr>  Sun, 18 Oct 2026 12:00:00 +0000
+
 stcc (0.4.0-1) unstable; urgency=low
 
   * Add fixed-address ROM linking with independent ROM and RAM placement.

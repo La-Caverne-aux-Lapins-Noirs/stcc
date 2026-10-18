@@ -9,7 +9,9 @@ EXAMPLES=[('01MIN.TOS',['01_minimal.c'],42),('02CALC.TOS',['02_calculs.c'],0),
  ('09MULTI.TOS',['09_multi/main.c','09_multi/math.c'],0),
  ('10MIX.TOS',['10_mix/main.c','10_mix/twice.s'],0),
  ('11BITS.TOS',['11_bits.c'],0),('12IRQ.TOS',['12_interrupts.c'],0),
- ('13CHAIN.TOS',['13_naked_chain.c'],0),('14VBL.TOS',['14_vbl.c'],0)]
+ ('13CHAIN.TOS',['13_naked_chain.c'],0),('14VBL.TOS',['14_vbl.c'],0),
+ ('16REG.TOS',['16_registers.c'],42),('17STACK.TOS',['17_stack.c'],42),
+ ('18ARGS.TTP',['18_args.c'],0),('19PORT.TOS',['19_portable.c'],42)]
 OS_ONLY={'12IRQ.TOS','13CHAIN.TOS','14VBL.TOS'}
 
 def main():

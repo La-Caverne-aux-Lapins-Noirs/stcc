@@ -17,6 +17,8 @@ static void help(void)
          "  --rom-size N  ROM byte count, padded with 0xff (default: 196608)\n"
          "  --ram-base N  writable DATA address (default: 0x1000)\n"
          "  --ram-limit N exclusive DATA/BSS limit (default: 0x78000)\n"
+         "  --stack-size N startup stack bytes (default: 16384; even, at least 256)\n"
+         "  --stack-top EXPR use a user-provided stack end instead of reserving a stack\n"
          "  --map FILE    write link map\n  --entry NAME  assert entry at TEXT offset 0\n"
          "  --data-dir DIR runtime and include directory\n"
          "  -v, --version version\n  --help        this help");
@@ -52,9 +54,12 @@ int main(int argc, char **argv)
          **defs = xcalloc((size_t)argc + 16, sizeof *defs);
     int ni = 0, ninc = 0, nd = 0, i, mode = 0, no_start = 0, no = 0;
     int rom = 0, rom_options = 0;
+    int stack_options = 0;
+    uint32_t stack_size = 16384;
+    char *stack_top = NULL;
     RomOptions layout = {0xfc0000, 196608, 0x1000, 0x78000};
     char *out = NULL, *map = NULL, *entry = NULL, *datadir = NULL;
-    Object **objects = xcalloc((size_t)argc + 4, sizeof *objects);
+    Object **objects = xcalloc((size_t)argc + 6, sizeof *objects);
     char exe[4096];
     ssize_t z;
     for (i = 1; i < argc; i++) {
@@ -80,6 +85,18 @@ int main(int argc, char **argv)
         }
         if (!strcmp(s, "--rom")) {
             rom = 1;
+            continue;
+        }
+        if (!strcmp(s, "--stack-size") || !strcmp(s, "--stack-top")) {
+            if (++i == argc)
+                die("missing value for %s", s);
+            if (!strcmp(s, "--stack-size")) {
+                stack_size = option_number(s, argv[i]);
+                stack_options |= 1;
+            } else {
+                stack_top = argv[i];
+                stack_options |= 2;
+            }
             continue;
         }
         if (!strcmp(s, "--rom-base") || !strcmp(s, "--rom-size") || !strcmp(s, "--ram-base") ||
@@ -136,6 +153,14 @@ int main(int argc, char **argv)
         die("no input files");
     if (rom_options && !rom)
         die("ROM layout options require --rom");
+    if (stack_options && (mode || no_start))
+        die("stack options require linking with the default startup");
+    if (stack_options == 3)
+        die("--stack-size and --stack-top are mutually exclusive");
+    if ((stack_size & 1) || stack_size < 256 || stack_size > STCC_MAX_INPUT)
+        die("stack size must be even and within 256..16777216 bytes");
+    if (stack_top && !*stack_top)
+        die("--stack-top requires a linker expression");
     if (rom && mode)
         die("--rom requires linking; compile separate objects with -c first");
     if (rom && !no_start &&
@@ -211,11 +236,33 @@ int main(int argc, char **argv)
         if (!no_start) {
             char *p = fmt("%s/runtime/integer.s", datadir);
             objects[no++] = assemble(read_text(p), p);
+            if (!rom) {
+                char *support_includes[] = {fmt("%s/include", datadir)};
+                char *text, *assembly;
+                p = fmt("%s/runtime/args.c", datadir);
+                text = preprocess(p, support_includes, 1, NULL, 0);
+                assembly = compile_c(text, p);
+                objects[no++] = assemble(assembly, p);
+            }
+            if (stack_top) {
+                Object *stack = object_new("<stack selection>");
+                define(stack, "__stcc_stack_end", -2, 0, stack_top);
+                symbol(stack, "__stcc_stack_end", 0)->global = 1;
+                objects[no++] = stack;
+            } else if (stack_size == 16384) {
+                p = fmt("%s/runtime/stack.s", datadir);
+                objects[no++] = assemble(read_text(p), p);
+            } else {
+                char *text = fmt(" section bss\n xdef __stcc_stack,__stcc_stack_end\n"
+                                 "__stcc_stack:\n ds.b %u\n__stcc_stack_end:\n",
+                                 stack_size);
+                objects[no++] = assemble(text, "<sized startup stack>");
+            }
         }
         if (rom)
-            link_rom(objects, no, out ? out : "a.rom", entry, map, &layout);
+            link_rom(objects, no, out ? out : "a.rom", entry, map, &layout, !no_start);
         else
-            link_tos(objects, no, out ? out : "a.TOS", entry, map);
+            link_tos(objects, no, out ? out : "a.TOS", entry, map, !no_start);
     }
     return 0;
 }

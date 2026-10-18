@@ -30,7 +30,7 @@ def main():
         # Seed products and inputs separately so accidental deletion is visible.
         preserved = ['stcc','stmkdisk','examples/bin/DEMO.TOS','dist/stcc.deb',
                      'src/example.c','tests/example.py','scripts/example.py',
-                     'runtime/start.s','tos/TOS.IMG','tos/archive/KEEP.log',
+                     'runtime/start.s','runtime/args.c','tos/TOS.IMG','tos/archive/KEEP.log',
                      'tos/__pycache__/KEEP.pyc']
         removed = ['src/example.o','tests/out/subdir/test.TOS','tests/out/run.log',
                    'validation/hatari.log','validation/report.json','validation/package-info.txt',
@@ -72,6 +72,7 @@ def main():
         images['LINK.IMG'] = b'linked ROM bytes'
         stage = Path(temporary)/'stage'
         run(root,'-o','all','install','PREFIX=/usr','DESTDIR='+str(stage))
+        assert (stage/'usr/share/stcc/runtime/args.c').read_bytes()==b'runtime/args.c'
         target = stage/'usr/share/stcc/tos'
         for name,data in images.items():
             assert (target/name).read_bytes() == data,name

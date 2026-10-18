@@ -31,6 +31,7 @@ Les identifiants C **dans les opérandes** sont résolus selon leur portée C :
 - variable locale / paramètre : opérande mémoire `déplacement(a6)` ;
 - variable globale ou statique : symbole assembleur de stockage ;
 - fonction déclarée : symbole de fonction avec le préfixe `_` ;
+- variable placée par `register` : son registre matériel ; voir REGISTERS.md ;
 - nom non reconnu : symbole assembleur, résolu par l'assembleur et le linker.
 
 Les noms de registres désignent toujours les registres. Un identifiant C qui
@@ -64,12 +65,16 @@ et `memory`. Les noms `sp`, `a7`, `a6` sont rejetés dans cette liste.
 
 Dans cette version conservatrice, **tous** les blocs ordinaires sont des barrières mémoire
 et de flags ; la liste ne sert pas à supprimer des protections. Les valeurs C
-intermédiaires sont sur la pile, les variables C restent en mémoire, et aucun
+intermédiaires sont sur la pile, les variables C ordinaires restent en mémoire, et aucun
 accès n'est déplacé au travers du bloc. Il n'y a ni cache de variable en registre,
 ni dépendance aux flags en entrée ou en sortie.
 
-Dans une fonction ordinaire ou `__interrupt__`, chaque bloc sauvegarde `d2-d7/a2-a5` avec `MOVEM.L`, puis les restaure avant
-l'instruction C suivante. C'est le cas même si la liste déclare leur modification.
+Dans une fonction ordinaire ou `__interrupt__`, chaque bloc sauvegarde les
+registres de `d2-d7/a2-a5` qui ne sont pas exposés par ses variables `register`,
+puis les restaure avant l'instruction C suivante. C'est le cas même si la liste
+déclare leur modification. Un registre explicitement associé à une variable
+active, ou une variable en registre nommée dans le bloc, reste modifiable par
+le bloc : sa nouvelle valeur devient celle observée par C. Voir REGISTERS.md.
 Cela maintient la convention d'appel du code C environnant. Les variables sont
 adressées via `a6`, indépendamment des arguments empilés par le bloc.
 
@@ -79,7 +84,7 @@ adressées via `a6`, indépendamment des arguments empilés par le bloc.
   `UNLK` ou un chargement de registre pour le modifier.
 - `sp` doit être identique à sa valeur d'entrée à la sortie du bloc. Les `push`
   nécessaires à un `TRAP` sont autorisés si leurs `pop`/ajustements correspondent.
-- La sauvegarde automatique des non-volatils occupe 40 octets supplémentaires
+- La sauvegarde automatique des non-volatils occupe jusqu'à 40 octets supplémentaires
   à l'entrée du bloc. Ne pas chercher les paramètres C avec `sp`.
 - Tous les chemins de contrôle doivent revenir à la fin du même bloc. Les
   branches vers ses labels locaux sont autorisées. Sortir par `RTS`, `RTE`,

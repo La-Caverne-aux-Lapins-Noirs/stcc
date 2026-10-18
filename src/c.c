@@ -27,6 +27,75 @@ static int depth, unique, frame, breakable, continuable, current_function_flags;
 static Type *return_type;
 static Node *current_switch;
 static Function *last_function;
+static unsigned register_active, register_fixed, register_used, register_reserved;
+const char *c_register_name(int reg)
+{
+    static const char *names[] = {"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
+                                  "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"};
+    if (reg < 1 || reg > 16)
+        die("internal invalid C register");
+    return names[reg - 1];
+}
+static int register_number(Token *t)
+{
+    const char *s = t->text;
+    int reg = 0;
+    if (t->kind == TK_IDENT && strlen(s) == 2 && strchr("dDaA", s[0]) && s[1] >= '0' && s[1] <= '7')
+        reg = s[1] - '0' + (tolower((unsigned char)s[0]) == 'a' ? 9 : 1);
+    if (!reg || !(0x3cfcu & (1u << (reg - 1))))
+        at(t, "register binding requires d2-d7 or a2-a5; compiler scratch, a6 and sp are reserved");
+    return reg;
+}
+static void allocate_register(Var *v, int requested)
+{
+    unsigned available = 0x3cfcu & ~(register_active | register_reserved);
+    int r = 0, i;
+    if (!scalar(v->type)) {
+        if (requested)
+            at(tok, "explicit register variable must be an integer or pointer");
+        return; /* Ordinary C89 register is a hint; aggregates keep storage. */
+    }
+    if (requested) {
+        unsigned bit = 1u << (requested - 1);
+        if (register_active & bit)
+            at(tok, "register %s already belongs to a live variable", c_register_name(requested));
+        if (requested >= 9 && v->type->size != 4)
+            at(tok, "address-register variables require a pointer or a 32-bit integer");
+        r = requested;
+    } else {
+        unsigned preferred = v->type->kind == TY_PTR ? available & 0x3c00u : available & 0xfcu;
+        if (!preferred && v->type->kind == TY_PTR)
+            preferred = available & 0xfcu;
+        for (i = 1; i <= 16; i++)
+            if (preferred & (1u << (i - 1))) {
+                r = i;
+                break;
+            }
+    }
+    if (r) {
+        v->reg = r;
+        v->fixed_reg = requested != 0;
+        register_active |= 1u << (r - 1);
+        register_used |= 1u << (r - 1);
+        if (requested)
+            register_fixed |= 1u << (r - 1);
+    }
+}
+static unsigned reserved_registers(Token *t)
+{
+    unsigned mask = 0;
+    int nesting = 0;
+    do {
+        if (!strcmp(t->text, "{"))
+            nesting++;
+        else if (!strcmp(t->text, "}"))
+            nesting--;
+        if (t->kind == TK_IDENT && !strcmp(t->text, "register") && !strcmp(t->next->text, "("))
+            mask |= 1u << (register_number(t->next->next) - 1);
+        t = t->next;
+    } while (t && t->kind != TK_EOF && nesting);
+    return mask;
+}
 static int equal(const char *s)
 {
     return !strcmp(tok->text, s);
@@ -156,7 +225,7 @@ static Var *anonymous(Type *type, const char *prefix)
 static Node *expression_c(void);
 static Node *assign(void);
 static Node *conditional(void);
-static Type *spec(int *, int *);
+static Type *spec(int *, int *, int *);
 static Type *declarator(Type *, char **, int);
 static Type *with_function_flags(Type *t, int flags)
 {
@@ -255,8 +324,8 @@ static Type *record(int kind)
     need("{");
     tail = &t->members;
     while (!eat("}")) {
-        int storage, flags;
-        Type *base = spec(&storage, &flags);
+        int storage, flags, hint;
+        Type *base = spec(&storage, &flags, &hint);
         if (storage)
             at(tok, "storage class on member");
         do {
@@ -365,12 +434,13 @@ static Type *enumeration(void)
     need("}");
     return t;
 }
-static Type *spec(int *storage, int *flags)
+static Type *spec(int *storage, int *flags, int *hint)
 {
     Type *type = NULL;
     int u = 0, sign = 0, shorts = 0, longs = 0, ints = 0, chars = 0, voids = 0, q = 0, seen = 0;
     *storage = 0;
     *flags = 0;
+    *hint = 0;
     for (;;) {
         int sc = 0;
         Var *v;
@@ -388,8 +458,14 @@ static Type *spec(int *storage, int *flags)
             sc = SC_STATIC;
         else if (eat("auto"))
             sc = SC_AUTO;
-        else if (eat("register"))
+        else if (eat("register")) {
             sc = SC_REGISTER;
+            if (eat("(")) {
+                *hint = register_number(tok);
+                tok = tok->next;
+                need(")");
+            }
+        }
         if (sc) {
             if (*storage)
                 at(tok, "multiple storage classes");
@@ -543,7 +619,7 @@ static Dcl *decltree(int abstract)
                 continue;
             }
             for (;;) {
-                int storage, flags;
+                int storage, flags, hint;
                 char *pn = NULL;
                 Type *pt;
                 if (eat("...")) {
@@ -553,7 +629,7 @@ static Dcl *decltree(int abstract)
                     need(")");
                     break;
                 }
-                pt = spec(&storage, &flags);
+                pt = spec(&storage, &flags, &hint);
                 if (storage && storage != SC_REGISTER)
                     at(tok, "invalid parameter storage");
                 pt = declarator(pt, &pn, 1);
@@ -567,8 +643,12 @@ static Dcl *decltree(int abstract)
                     cap = cap ? cap * 2 : 8;
                     ft->params = xrealloc(ft->params, (size_t)cap * sizeof *ft->params);
                     ft->pnames = xrealloc(ft->pnames, (size_t)cap * sizeof *ft->pnames);
+                    ft->pstorage = xrealloc(ft->pstorage, (size_t)cap * sizeof *ft->pstorage);
+                    ft->pregs = xrealloc(ft->pregs, (size_t)cap * sizeof *ft->pregs);
                 }
                 ft->params[ft->nparams] = pt;
+                ft->pstorage[ft->nparams] = storage;
+                ft->pregs[ft->nparams] = hint;
                 ft->pnames[ft->nparams++] = pn;
                 if (eat(")"))
                     break;
@@ -612,9 +692,9 @@ static Type *declarator(Type *base, char **name, int abstract)
 }
 static Type *type_name(void)
 {
-    int storage, flags;
+    int storage, flags, hint;
     char *name;
-    Type *t = spec(&storage, &flags);
+    Type *t = spec(&storage, &flags, &hint);
     if (storage)
         at(tok, "storage class in type name");
     if (!equal(")"))
@@ -1360,11 +1440,11 @@ static void append(Node **head, Node **tail, Node *n)
 }
 static Node *local_declaration(void)
 {
-    int storage, flags;
+    int storage, flags, hint;
     Type *base;
     if (current_function_flags & FN_NAKED)
         at(tok, "__naked__ bodies only accept inline assembly, without declarations");
-    base = spec(&storage, &flags);
+    base = spec(&storage, &flags, &hint);
     Node *head = NULL, *tail = NULL;
     Token *start = tok;
     if (eat(";"))
@@ -1385,6 +1465,8 @@ static Node *local_declaration(void)
         }
         if (ty->kind == TY_VOID)
             at(tok, "variable has void type");
+        if (storage == SC_REGISTER && ty->kind == TY_FUNC)
+            at(tok, "register cannot declare a function");
         if (storage == SC_EXTERN || ty->kind == TY_FUNC) {
             Var *g = global(name);
             if (!g)
@@ -1398,6 +1480,8 @@ static Node *local_declaration(void)
             continue;
         }
         v = bind(name, ty, storage);
+        if (storage == SC_REGISTER)
+            allocate_register(v, hint);
         if (storage == SC_STATIC) {
             Var *g = anonymous(ty, "static");
             v->label = g->label;
@@ -1412,11 +1496,13 @@ static Node *local_declaration(void)
                 initializer(ty, 0, 0, &ih, &it);
             if (ty->size < 0)
                 at(tok, "incomplete local type");
-            frame = (frame + ty->align - 1) / ty->align * ty->align + ty->size;
-            frame = (frame + 1) & ~1;
-            if (frame > 32760)
-                at(tok, "local frame exceeds 68000 LINK displacement");
-            v->offset = -frame;
+            if (!v->reg) {
+                frame = (frame + ty->align - 1) / ty->align * ty->align + ty->size;
+                frame = (frame + 1) & ~1;
+                if (frame > 32760)
+                    at(tok, "local frame exceeds 68000 LINK displacement");
+                v->offset = -frame;
+            }
             if (ih) {
                 if (ty->kind == TY_ARRAY || aggregate(ty)) {
                     Node *z = node(ND_ZERO, start);
@@ -1453,7 +1539,7 @@ static int asmreg(const char *s)
     return (strlen(s) == 2 && strchr("dDaA", s[0]) && s[1] >= '0' && s[1] <= '7') ||
            samei(s, "sp") || samei(s, "pc") || samei(s, "sr") || samei(s, "ccr") || samei(s, "usp");
 }
-static char *inline_asm(Token *t)
+static char *inline_asm(Token *t, unsigned *regmask)
 {
     char *s = xstrdup(t->text), *p = trim(s), *body, *end, *line, *next;
     Str out = {0};
@@ -1566,7 +1652,10 @@ static char *inline_asm(Token *t)
                 if (v && v->storage != SC_TYPEDEF && !v->is_enum && !asmreg(name) &&
                     (start == line || start[-1] != '.') &&
                     !(start > line && isalnum((unsigned char)start[-1]))) {
-                    if (v->label)
+                    if (v->reg) {
+                        puts_s(&out, c_register_name(v->reg));
+                        *regmask |= 1u << (v->reg - 1);
+                    } else if (v->label)
                         puts_s(&out, v->label);
                     else
                         printf_s(&out, "%d(a6)", v->offset);
@@ -1606,6 +1695,7 @@ static Node *block(void)
     Var *saved = scope;
     Tag *tsaved = tags;
     int seen_statement = 0;
+    unsigned saved_registers = register_active, saved_fixed = register_fixed;
     need("{");
     depth++;
     while (!eat("}")) {
@@ -1623,6 +1713,8 @@ static Node *block(void)
     depth--;
     scope = saved;
     tags = tsaved;
+    register_active = saved_registers;
+    register_fixed = saved_fixed;
     n->body = head;
     return n;
 }
@@ -1641,7 +1733,8 @@ static Node *statement(void)
         return node(ND_BLOCK, t);
     if (tok->kind == TK_ASM) {
         n = node(ND_ASM, t);
-        n->text = inline_asm(tok);
+        n->regmask = register_fixed;
+        n->text = inline_asm(tok, &n->regmask);
         tok = tok->next;
         eat(";");
         return n;
@@ -1810,12 +1903,12 @@ char *compile_c(const char *s, const char *file)
     last_function = NULL;
     tok = lex_c(s, file);
     while (tok->kind != TK_EOF) {
-        int storage = 0, flags = 0;
+        int storage = 0, flags = 0, hint = 0;
         Type *base;
         if (tok->kind == TK_IDENT && !typename_start() && !strcmp(tok->next->text, "("))
             base = type_new(TY_INT, 0);
         else
-            base = spec(&storage, &flags);
+            base = spec(&storage, &flags, &hint);
         if (storage == SC_AUTO || storage == SC_REGISTER)
             at(tok, "invalid file-scope storage class");
         if (eat(";"))
@@ -1850,8 +1943,14 @@ char *compile_c(const char *s, const char *file)
                     at(tok, "function redefinition '%s'", name);
                 if (aggregate(ty->base))
                     at(tok, "aggregate return ABI is not implemented");
-                if (!strcmp(name, "main") && ty->nparams)
-                    at(tok, "startup currently supports main(void) only");
+                if (!strcmp(name, "main") &&
+                    (ty->variadic ||
+                     (ty->nparams &&
+                      (ty->nparams != 2 || ty->params[0]->kind != TY_INT || ty->params[0]->uns ||
+                       ty->params[1]->kind != TY_PTR || ty->params[1]->base->kind != TY_PTR ||
+                       ty->params[1]->base->base->kind != TY_CHAR ||
+                       ty->params[1]->base->base->uns))))
+                    at(tok, "startup supports main(void) or main(int, char **) only");
                 v->defined = 1;
                 f = xcalloc(1, sizeof *f);
                 f->var = v;
@@ -1867,6 +1966,11 @@ char *compile_c(const char *s, const char *file)
                 labels = NULL;
                 return_type = ty->base;
                 current_function_flags = ty->func_flags;
+                register_active = register_fixed = register_used = 0;
+                register_reserved = reserved_registers(tok);
+                for (i = 0; i < ty->nparams; i++)
+                    if (ty->pregs[i])
+                        register_reserved |= 1u << (ty->pregs[i] - 1);
                 breakable = continuable = 0;
                 current_switch = NULL;
                 for (i = 0; i < ty->nparams; i++) {
@@ -1876,8 +1980,10 @@ char *compile_c(const char *s, const char *file)
                         at(where, "function definition needs parameter names");
                     if (lookup(ty->pnames[i]) && lookup(ty->pnames[i])->depth == 1)
                         at(where, "duplicate parameter");
-                    pv = bind(ty->pnames[i], ty->params[i], SC_AUTO);
+                    pv = bind(ty->pnames[i], ty->params[i], ty->pstorage[i]);
                     pv->offset = argoff + (ty->params[i]->size == 1 ? 1 : 0);
+                    if (pv->storage == SC_REGISTER)
+                        allocate_register(pv, ty->pregs[i]);
                     f->params[i] = pv;
                     argoff += slot;
                 }
@@ -1885,6 +1991,7 @@ char *compile_c(const char *s, const char *file)
                 f->body = block();
                 current_function_flags = 0;
                 f->frame = frame;
+                f->regmask = register_used;
                 scope = saved;
                 tags = tsaved;
                 depth = 0;
